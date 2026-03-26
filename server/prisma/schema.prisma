@@ -1,0 +1,79 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  AGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketCategory {
+  BILLING
+  TECHNICAL
+  GENERAL
+  FEATURE_REQUEST
+  BUG
+  OTHER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      Role     @default(AGENT)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedTickets Ticket[] @relation("AssignedAgent")
+  createdTickets  Ticket[] @relation("CreatedBy")
+}
+
+model Ticket {
+  id          String         @id @default(cuid())
+  subject     String
+  body        String
+  status      TicketStatus   @default(OPEN)
+  category    TicketCategory @default(OTHER)
+  priority    Int            @default(0)
+  fromEmail   String?
+  fromName    String?
+  aiSummary   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  assignedTo   User?   @relation("AssignedAgent", fields: [assignedToId], references: [id])
+  assignedToId String?
+
+  createdBy   User?   @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById String?
+
+  replies Reply[]
+
+  @@index([status])
+  @@index([category])
+  @@index([assignedToId])
+}
+
+model Reply {
+  id        String   @id @default(cuid())
+  body      String
+  isAi      Boolean  @default(false)
+  sentEmail Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  ticketId String
+}
