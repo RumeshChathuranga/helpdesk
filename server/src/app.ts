@@ -1,8 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { toNodeHandler } from "better-auth/node";
-import { auth } from "./lib/auth.js";
+import session from "express-session";
 import { router } from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
@@ -23,7 +22,18 @@ export function createApp(): Express {
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ extended: true }));
 
-  app.all("/api/auth/{*path}", toNodeHandler(auth));
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET ?? "dev-secret-change-in-prod",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      },
+    })
+  );
 
   app.use("/api", router);
 
