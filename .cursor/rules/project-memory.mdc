@@ -1,0 +1,56 @@
+---
+description: Core project memory for the Helpdesk app — stack, structure, and conventions
+alwaysApply: true
+---
+
+# Helpdesk — Project Memory
+
+## What this project is
+An internal helpdesk platform for support agents to manage tickets, powered by AI (Claude) for classification, summaries, and suggested replies. Tickets can arrive via email or be created manually.
+
+## Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Runtime | Bun |
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS + React Router v7 |
+| Backend | Express 5 + TypeScript (runs on Bun) |
+| Database | PostgreSQL via Prisma ORM |
+| Auth | Session-based (`express-session`) |
+| AI | Anthropic Claude API |
+| Email | SendGrid or Mailgun |
+
+## Monorepo Structure
+
+```
+helpdesk/
+├── client/          # React app (port 5173)
+│   └── src/
+│       ├── components/
+│       ├── pages/
+│       └── App.tsx
+└── server/          # Express API (port 8080)
+    ├── prisma/schema.prisma
+    └── src/
+        ├── app.ts        # Express factory
+        ├── index.ts      # Entry point
+        ├── routes/
+        ├── middleware/
+        └── lib/prisma.ts
+```
+
+- Vite proxies `/api/*` → `http://localhost:8080`
+- Run everything: `bun dev:server` and `bun dev:client` from root
+
+## Prisma Models
+`User` (id, email, name, password, role: ADMIN|AGENT)
+`Ticket` (id, subject, body, status, category, priority, assignedTo, replies)
+`Reply` (id, body, isAi, sentEmail, ticketId)
+
+## Conventions
+- All server source files use ESM (`import/export`), `.js` extensions in imports
+- Express route files export a typed `IRouter`; mount under `/api` in `app.ts`
+- Prisma client is a singleton in `server/src/lib/prisma.ts`
+- Frontend path alias `@/` maps to `client/src/`
+- Tailwind brand color token: `brand-{50..900}` (blue scale)
+- Role-based access: `ADMIN` manages users; `AGENT` handles tickets

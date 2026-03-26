@@ -1,0 +1,29 @@
+---
+description: Always fetch up-to-date library documentation via Context7 MCP before writing code
+alwaysApply: true
+---
+
+# Use Context7 for Up-to-Date Docs
+
+When working with any library, framework, or API — **always use Context7 MCP** to fetch current documentation instead of relying on training data. This applies to setup, code generation, API references, and anything involving specific packages.
+
+## Steps
+
+1. Call `resolve-library-id` with the library name and the user's question
+2. Pick the best match — prefer exact names and higher benchmark scores
+3. Call `query-docs` with the selected library ID and a specific question
+4. Answer using the fetched docs — include code examples and cite the version
+
+## Key libraries in this project
+
+| Library | Context7 ID |
+|---|---|
+| Express | `/expressjs/express` |
+| Vite | `/vitejs/vite` |
+| Prisma | `/prisma/prisma` |
+| Bun | `/oven-sh/bun` |
+| React Router | resolve via `resolve-library-id` |
+| Tailwind CSS | resolve via `resolve-library-id` |
+
+## Rule
+Never assume an API is correct from memory — especially for Prisma migrations, Express 5 APIs, React Router v7, and Bun-specific features, which change frequently.
