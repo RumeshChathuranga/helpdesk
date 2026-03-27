@@ -1,30 +1,31 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router";
+import { authClient } from "@/lib/auth-client";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ email, password }),
+      const { error: authError } = await authClient.signIn.email({
+        email,
+        password,
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Login failed");
+      if (authError) {
+        setError(authError.message ?? "Login failed");
+        return;
       }
-      window.location.href = "/dashboard";
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      navigate("/dashboard", { replace: true });
+    } catch {
+      setError("Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -35,9 +36,7 @@ export function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign in</h1>
-          <p className="text-sm text-gray-500 mb-8">
-            Welcome back to Helpdesk
-          </p>
+          <p className="text-sm text-gray-500 mb-8">Welcome back to Helpdesk</p>
 
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">

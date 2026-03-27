@@ -10,6 +10,13 @@
     "dev:server": "bun run --filter server dev",
     "dev:client": "bun run --filter client dev",
     "build": "bun run --filter '*' build",
-    "lint": "bun run --filter '*' lint"
+    "lint": "bun run --filter '*' lint",
+    "db:studio": "bun run --filter server db:studio",
+    "db:seed": "bun run --filter server db:seed",
+    "db:migrate": "bun run --filter server db:migrate",
+    "db:push": "bun run --filter server db:push"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

@@ -1,6 +1,15 @@
-import { Outlet, NavLink } from "react-router";
+import { Outlet, NavLink, useNavigate } from "react-router";
+import { authClient } from "@/lib/auth-client";
 
 export function Layout() {
+  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await authClient.signOut();
+    navigate("/login", { replace: true });
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <aside className="w-60 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
@@ -15,8 +24,16 @@ export function Layout() {
       </aside>
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 justify-end">
-          <button className="text-sm text-gray-500 hover:text-gray-800 transition-colors">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-6 gap-4 justify-end">
+          {session?.user.name && (
+            <span className="text-sm text-gray-700 font-medium">
+              {session.user.name}
+            </span>
+          )}
+          <button
+            onClick={handleSignOut}
+            className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
+          >
             Sign out
           </button>
         </header>
