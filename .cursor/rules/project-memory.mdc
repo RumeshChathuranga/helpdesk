@@ -95,14 +95,9 @@ helpdesk/
 - Inactive in development and test environments
 
 ## E2E Testing
-- Playwright tests live in `e2e/` at the repo root
-- Test database: `helpdesk_test` (separate from dev `helpdesk`)
-- Config: `playwright.config.ts` loads `server/.env.test`, starts both servers via `webServer`
-- `global-setup.ts` runs `prisma migrate deploy` on the test DB before the suite
-- `global-teardown.ts` resets the test DB on CI only
-- Server runs in test mode via `bun --env-file .env.test src/index.ts` (`test:server` script)
-- Scripts: `bun run test:e2e`, `test:e2e:ui`, `test:e2e:headed`, `test:e2e:report`
-- Requires `helpdesk_test` DB to exist and `bunx playwright install chromium` run once
+- Use the **`playwright-e2e-writer` subagent** to write all Playwright tests — invoke it with: _"Use the playwright-e2e-writer to write tests for [feature]"_
+- Tests live in `e2e/*.spec.ts`; run with `bun run test:e2e` from the repo root
+- See the `playwright-e2e-writer` agent (`.cursor/agents/playwright-e2e-writer.md`) for full setup details, conventions, and code patterns
 
 ## Conventions
 - All server source files use ESM (`import/export`), `.js` extensions in imports
