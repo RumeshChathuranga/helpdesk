@@ -6,6 +6,7 @@ import { auth } from "./lib/auth.js";
 import { router } from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
+import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
 export function createApp(): Express {
   const app = express();
@@ -19,6 +20,11 @@ export function createApp(): Express {
       credentials: true,
     })
   );
+
+  if (process.env.NODE_ENV === "production") {
+    app.use("/api/auth", authLimiter);
+    app.use("/api", apiLimiter);
+  }
 
   // Better Auth handler must come before express.json() — it reads the raw body
   app.all("/api/auth/{*path}", toNodeHandler(auth));

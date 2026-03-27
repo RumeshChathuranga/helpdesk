@@ -21,11 +21,17 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 | Auth | Better Auth (`better-auth`) |
 | AI | Anthropic Claude API |
 | Email | SendGrid or Mailgun |
+| E2E Testing | Playwright (`@playwright/test`) |
+| Rate Limiting | `express-rate-limit` (production only) |
 
 ## Monorepo Structure
 
 ```
 helpdesk/
+├── e2e/                     # Playwright E2E tests
+│   ├── global-setup.ts      # Runs prisma migrate deploy on helpdesk_test before suite
+│   └── global-teardown.ts   # Resets test DB on CI after suite
+├── playwright.config.ts     # Playwright config — loads server/.env.test, spins up both servers
 ├── client/                  # React app (port 5173)
 │   ├── components.json      # shadcn config
 │   └── src/
@@ -43,6 +49,8 @@ helpdesk/
 │       │   └── UsersPage.tsx       # Admin-only; route: /users
 │       └── App.tsx
 └── server/                  # Express API (port 8080)
+    ├── .env.test            # Test env (gitignored) — points to helpdesk_test DB
+    ├── .env.test.example    # Committed template for .env.test
     ├── prisma/
     │   ├── schema.prisma
     │   └── seed.ts          # Creates admin user (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
@@ -51,6 +59,7 @@ helpdesk/
         ├── index.ts         # Entry point
         ├── routes/
         ├── middleware/
+        │   └── rateLimiter.ts  # authLimiter (20 req/15min) + apiLimiter (200 req/15min)
         └── lib/
             ├── prisma.ts
             └── auth.ts      # Better Auth config (emailAndPassword, disableSignUp: true)
@@ -77,6 +86,23 @@ helpdesk/
 |---|---|---|
 | (set via SEED_ADMIN_EMAIL env) | (set via SEED_ADMIN_PASSWORD env) | ADMIN |
 | agent@example.com | password@123 | AGENT |
+
+## Rate Limiting
+- Applied in `app.ts` only when `NODE_ENV === "production"`
+- `authLimiter`: 20 requests / 15 min on `/api/auth` (login, session endpoints)
+- `apiLimiter`: 200 requests / 15 min on all other `/api` routes
+- Uses `RateLimit-*` response headers (`draft-8` standard)
+- Inactive in development and test environments
+
+## E2E Testing
+- Playwright tests live in `e2e/` at the repo root
+- Test database: `helpdesk_test` (separate from dev `helpdesk`)
+- Config: `playwright.config.ts` loads `server/.env.test`, starts both servers via `webServer`
+- `global-setup.ts` runs `prisma migrate deploy` on the test DB before the suite
+- `global-teardown.ts` resets the test DB on CI only
+- Server runs in test mode via `bun --env-file .env.test src/index.ts` (`test:server` script)
+- Scripts: `bun run test:e2e`, `test:e2e:ui`, `test:e2e:headed`, `test:e2e:report`
+- Requires `helpdesk_test` DB to exist and `bunx playwright install chromium` run once
 
 ## Conventions
 - All server source files use ESM (`import/export`), `.js` extensions in imports

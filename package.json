@@ -14,9 +14,20 @@
     "db:studio": "bun run --filter server db:studio",
     "db:seed": "bun run --filter server db:seed",
     "db:migrate": "bun run --filter server db:migrate",
-    "db:push": "bun run --filter server db:push"
+    "db:push": "bun run --filter server db:push",
+    "test:e2e": "bunx playwright test",
+    "test:e2e:ui": "bunx playwright test --ui",
+    "test:e2e:headed": "bunx playwright test --headed",
+    "test:e2e:report": "bunx playwright show-report",
+    "db:test:setup": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate deploy --schema server/prisma/schema.prisma",
+    "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --skip-seed --schema server/prisma/schema.prisma"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@playwright/test": "^1.58.2",
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.3.1"
+  },
+  "dependencies": {
+    "express-rate-limit": "^8.3.1"
   }
 }

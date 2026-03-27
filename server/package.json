@@ -11,7 +11,8 @@
     "db:migrate": "bunx prisma migrate dev",
     "db:push": "bunx prisma db push",
     "db:studio": "bunx prisma studio",
-    "db:seed": "bun prisma/seed.ts"
+    "db:seed": "bun prisma/seed.ts",
+    "test:server": "bun --env-file .env.test src/index.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.5.0",
