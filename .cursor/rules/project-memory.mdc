@@ -13,10 +13,12 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 | Layer | Choice |
 |---|---|
 | Runtime | Bun |
-| Frontend | React 19 + TypeScript + Vite + Tailwind CSS + React Router v7 |
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS v3 + React Router v7 |
+| UI Components | shadcn/ui (Default style, Neutral theme, CSS variables) |
+| Forms | react-hook-form v7 + zod v4 + @hookform/resolvers |
 | Backend | Express 5 + TypeScript (runs on Bun) |
 | Database | PostgreSQL via Prisma ORM |
-| Auth | Session-based (`express-session`) |
+| Auth | Better Auth (`better-auth`) |
 | AI | Anthropic Claude API |
 | Email | SendGrid or Mailgun |
 
@@ -24,16 +26,21 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 
 ```
 helpdesk/
-├── client/          # React app (port 5173)
+├── client/                  # React app (port 5173)
+│   ├── components.json      # shadcn config
 │   └── src/
 │       ├── components/
+│       │   └── ui/          # shadcn components (button, card, form, input, label, alert)
+│       ├── lib/
+│       │   ├── utils.ts     # cn() helper (clsx + tailwind-merge)
+│       │   └── auth-client.ts
 │       ├── pages/
 │       └── App.tsx
-└── server/          # Express API (port 8080)
+└── server/                  # Express API (port 8080)
     ├── prisma/schema.prisma
     └── src/
-        ├── app.ts        # Express factory
-        ├── index.ts      # Entry point
+        ├── app.ts           # Express factory
+        ├── index.ts         # Entry point
         ├── routes/
         ├── middleware/
         └── lib/prisma.ts
@@ -52,5 +59,9 @@ helpdesk/
 - Express route files export a typed `IRouter`; mount under `/api` in `app.ts`
 - Prisma client is a singleton in `server/src/lib/prisma.ts`
 - Frontend path alias `@/` maps to `client/src/`
-- Tailwind brand color token: `brand-{50..900}` (blue scale)
+- Tailwind brand color token: `brand-{50..900}` (blue scale) — preserved alongside shadcn tokens
+- shadcn design tokens use CSS variables (`--background`, `--foreground`, `--primary`, etc.) defined in `src/index.css`
+- Use `cn()` from `@/lib/utils` for conditional className merging
+- Forms use shadcn `<Form>` / `<FormField>` / `<FormControl>` / `<FormMessage>` wired to react-hook-form + zod
+- Chrome autofill styles are suppressed globally via `:-webkit-autofill` overrides in `index.css`
 - Role-based access: `ADMIN` manages users; `AGENT` handles tickets
