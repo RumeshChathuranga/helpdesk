@@ -19,7 +19,9 @@ export function Layout() {
         <nav className="flex-1 px-4 py-4 space-y-1">
           <NavItem to="/dashboard">Dashboard</NavItem>
           <NavItem to="/tickets">Tickets</NavItem>
-          <NavItem to="/users">Users</NavItem>
+          {session?.user?.role === "ADMIN" && (
+            <NavItem to="/users">Users</NavItem>
+          )}
         </nav>
       </aside>
 

@@ -30,20 +30,30 @@ helpdesk/
 │   ├── components.json      # shadcn config
 │   └── src/
 │       ├── components/
-│       │   └── ui/          # shadcn components (button, card, form, input, label, alert)
+│       │   ├── ui/          # shadcn components (button, card, form, input, label, alert)
+│       │   ├── Layout.tsx   # App shell with sidebar nav and header
+│       │   ├── ProtectedRoute.tsx  # Redirects unauthenticated users to /login
+│       │   └── AdminRoute.tsx      # Redirects non-ADMIN users to /dashboard
 │       ├── lib/
 │       │   ├── utils.ts     # cn() helper (clsx + tailwind-merge)
 │       │   └── auth-client.ts
 │       ├── pages/
+│       │   ├── LoginPage.tsx
+│       │   ├── DashboardPage.tsx
+│       │   └── UsersPage.tsx       # Admin-only; route: /users
 │       └── App.tsx
 └── server/                  # Express API (port 8080)
-    ├── prisma/schema.prisma
+    ├── prisma/
+    │   ├── schema.prisma
+    │   └── seed.ts          # Creates admin user (SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD)
     └── src/
         ├── app.ts           # Express factory
         ├── index.ts         # Entry point
         ├── routes/
         ├── middleware/
-        └── lib/prisma.ts
+        └── lib/
+            ├── prisma.ts
+            └── auth.ts      # Better Auth config (emailAndPassword, disableSignUp: true)
 ```
 
 - Vite proxies `/api/*` → `http://localhost:8080`
@@ -53,6 +63,20 @@ helpdesk/
 `User` (id, email, name, password, role: ADMIN|AGENT)
 `Ticket` (id, subject, body, status, category, priority, assignedTo, replies)
 `Reply` (id, body, isAi, sentEmail, ticketId)
+
+## Auth
+- Better Auth is configured in `server/src/lib/auth.ts`
+- `emailAndPassword` is enabled; public sign-up is disabled (`disableSignUp: true`) — users must be seeded
+- `role` is declared as `user.additionalFields` in the server auth config so it is included in session payloads
+- `auth-client.ts` uses `inferAdditionalFields` plugin (manual declaration) to expose `role` on the client session type
+- Route protection: `ProtectedRoute` (auth check) wraps all app routes; `AdminRoute` (role check) wraps admin-only routes
+- The sidebar nav conditionally renders admin links based on `session.user.role === "ADMIN"`
+
+## Seeded Users
+| Email | Password | Role |
+|---|---|---|
+| (set via SEED_ADMIN_EMAIL env) | (set via SEED_ADMIN_PASSWORD env) | ADMIN |
+| agent@example.com | password@123 | AGENT |
 
 ## Conventions
 - All server source files use ESM (`import/export`), `.js` extensions in imports
