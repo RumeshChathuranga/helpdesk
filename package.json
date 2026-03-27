@@ -20,7 +20,7 @@
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:report": "bunx playwright show-report",
     "db:test:setup": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate deploy --schema server/prisma/schema.prisma",
-    "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --skip-seed --schema server/prisma/schema.prisma"
+    "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --schema server/prisma/schema.prisma"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

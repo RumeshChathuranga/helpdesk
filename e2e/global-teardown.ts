@@ -10,7 +10,7 @@ export default async function globalTeardown() {
 
   if (process.env.CI) {
     console.log("\n[Playwright] Dropping test database tables...");
-    execSync("bunx prisma migrate reset --force --skip-seed", {
+    execSync("bunx prisma migrate reset --force", {
       cwd: resolve(__dirname, "../server"),
       env: { ...process.env, DATABASE_URL: databaseUrl },
       stdio: "inherit",
