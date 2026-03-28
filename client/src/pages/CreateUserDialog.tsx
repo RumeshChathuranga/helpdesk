@@ -86,6 +86,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
         </DialogHeader>
         <Form {...form}>
           <form
+            noValidate
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
@@ -117,7 +118,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input
-                      type="email"
+                      type="text"
+                      inputMode="email"
                       autoComplete="email"
                       {...field}
                     />
