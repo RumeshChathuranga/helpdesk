@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import axios, { isAxiosError } from "axios";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type UserListItem = {
@@ -12,72 +13,49 @@ type UserListItem = {
 
 type UsersResponse = { users: UserListItem[] };
 
+function getErrorMessage(e: unknown): string {
+  if (isAxiosError(e)) {
+    const d = e.response?.data;
+    if (
+      d &&
+      typeof d === "object" &&
+      "error" in d &&
+      typeof (d as { error: unknown }).error === "string"
+    ) {
+      return (d as { error: string }).error;
+    }
+    return e.message;
+  }
+  if (e instanceof Error) {
+    return e.message;
+  }
+  return "Something went wrong";
+}
+
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
 export function UsersPage() {
-  const [users, setUsers] = useState<UserListItem[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/users", { credentials: "include" });
-        const data: unknown = await res.json().catch(() => null);
-
-        if (!res.ok) {
-          const message =
-            data &&
-            typeof data === "object" &&
-            "error" in data &&
-            typeof (data as { error: unknown }).error === "string"
-              ? (data as { error: string }).error
-              : `Request failed (${res.status})`;
-          throw new Error(message);
-        }
-
-        if (
-          !data ||
-          typeof data !== "object" ||
-          !("users" in data) ||
-          !Array.isArray((data as UsersResponse).users)
-        ) {
-          throw new Error("Invalid response from server");
-        }
-
-        if (!cancelled) {
-          setUsers((data as UsersResponse).users);
-        }
-      } catch (e) {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Something went wrong");
-          setUsers(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const { data, isPending, isError, error, isSuccess } = useQuery({
+    queryKey: ["admin", "users"],
+    queryFn: async () => {
+      const { data: body } = await axios.get<UsersResponse>("/api/users", {
+        withCredentials: true,
+      });
+      if (!Array.isArray(body.users)) {
+        throw new Error("Invalid response from server");
       }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+      return body.users;
+    },
+  });
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Users</h1>
 
-      {loading && (
+      {isPending && (
         <div className="flex items-center gap-3 text-gray-600">
           <div
             className="h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"
@@ -87,18 +65,18 @@ export function UsersPage() {
         </div>
       )}
 
-      {!loading && error && (
+      {isError && (
         <Alert variant="destructive">
           <AlertTitle>Could not load users</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{getErrorMessage(error)}</AlertDescription>
         </Alert>
       )}
 
-      {!loading && !error && users && users.length === 0 && (
+      {isSuccess && data.length === 0 && (
         <p className="text-gray-600">No users found.</p>
       )}
 
-      {!loading && !error && users && users.length > 0 && (
+      {isSuccess && data.length > 0 && (
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -122,7 +100,7 @@ export function UsersPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {users.map((u) => (
+                {data.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50/80">
                     <td className="px-4 py-3 font-medium text-gray-900">
                       {u.name}

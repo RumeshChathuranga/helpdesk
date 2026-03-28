@@ -23,6 +23,8 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 | Email | SendGrid or Mailgun |
 | E2E Testing | Playwright (`@playwright/test`) |
 | Rate Limiting | `express-rate-limit` (production only) |
+| Client HTTP | **axios** (not `fetch`) |
+| Client server state | **TanStack Query** (`@tanstack/react-query`) |
 
 ## Monorepo Structure
 
@@ -67,6 +69,7 @@ helpdesk/
 
 - Vite proxies `/api/*` → `http://localhost:8080`
 - Run everything: `bun dev:server` and `bun dev:client` from root
+- **`main.tsx`** wraps the app with `QueryClientProvider` (shared `QueryClient` with sensible `defaultOptions`, e.g. `staleTime` for queries)
 
 ## Prisma Models
 `User` (id, email, name, password, role: ADMIN|AGENT)
@@ -110,3 +113,4 @@ helpdesk/
 - Forms use shadcn `<Form>` / `<FormField>` / `<FormControl>` / `<FormMessage>` wired to react-hook-form + zod
 - Chrome autofill styles are suppressed globally via `:-webkit-autofill` overrides in `index.css`
 - Role-based access: `ADMIN` manages users; `AGENT` handles tickets
+- **Client data fetching:** use **axios** for API calls (`withCredentials: true` so Better Auth session cookies are sent to `/api/*`). Use **TanStack Query** (`useQuery`, `useMutation`, etc.) for server state, caching, and request/error lifecycle — do not use raw `useEffect` + `fetch` for routine API-backed UI unless there is a specific reason
