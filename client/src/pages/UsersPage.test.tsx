@@ -89,20 +89,65 @@ describe("UsersPage", () => {
     expect(screen.getByText("Forbidden")).toBeInTheDocument();
   });
 
-  it("opens create-user dialog when the toolbar button is clicked", async () => {
+  it("opens the create-user dialog when the toolbar button is clicked", async () => {
     renderWithProviders(<UsersPage />);
 
     await waitFor(() => {
       expect(screen.getByText("Alice Admin")).toBeInTheDocument();
     });
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Create user" }),
-    );
+    expect(
+      screen.queryByRole("dialog", { name: "Create user" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
 
     expect(
       await screen.findByRole("dialog", { name: "Create user" }),
     ).toBeInTheDocument();
+  });
+
+  it("closes the create-user dialog when the overlay is clicked", async () => {
+    renderWithProviders(<UsersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Alice Admin")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Create user" });
+    const overlay = dialog.previousElementSibling;
+    expect(overlay).toBeTruthy();
+
+    fireEvent.pointerDown(overlay!, { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.click(overlay!);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Create user" }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("closes the create-user dialog when Escape is pressed", async () => {
+    renderWithProviders(<UsersPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Alice Admin")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Create user" }));
+
+    await screen.findByRole("dialog", { name: "Create user" });
+
+    fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("dialog", { name: "Create user" }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("validates name and password length in the create form", async () => {
