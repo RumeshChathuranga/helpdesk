@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import axios, { isAxiosError } from "axios";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type UserListItem = {
   id: string;
@@ -37,6 +38,32 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
+const SKELETON_ROWS = 6;
+
+function UsersTableHead() {
+  return (
+    <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
+      <tr>
+        <th scope="col" className="px-4 py-3">
+          Name
+        </th>
+        <th scope="col" className="px-4 py-3">
+          Email
+        </th>
+        <th scope="col" className="px-4 py-3">
+          Role
+        </th>
+        <th scope="col" className="px-4 py-3">
+          Verified
+        </th>
+        <th scope="col" className="px-4 py-3">
+          Created
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
 export function UsersPage() {
   const { data, isPending, isError, error, isSuccess } = useQuery({
     queryKey: ["admin", "users"],
@@ -56,12 +83,38 @@ export function UsersPage() {
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Users</h1>
 
       {isPending && (
-        <div className="flex items-center gap-3 text-gray-600">
-          <div
-            className="h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin"
-            aria-hidden
-          />
-          <span>Loading users…</span>
+        <div
+          className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
+          role="status"
+          aria-busy="true"
+          aria-label="Loading users"
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <UsersTableHead />
+              <tbody className="divide-y divide-gray-100">
+                {Array.from({ length: SKELETON_ROWS }, (_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-28" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-44 max-w-full" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-5 w-16 rounded-md" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-9" />
+                    </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-4 w-40" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -80,25 +133,7 @@ export function UsersPage() {
         <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
-                <tr>
-                  <th scope="col" className="px-4 py-3">
-                    Name
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Email
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Role
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Verified
-                  </th>
-                  <th scope="col" className="px-4 py-3">
-                    Created
-                  </th>
-                </tr>
-              </thead>
+              <UsersTableHead />
               <tbody className="divide-y divide-gray-100">
                 {data.map((u) => (
                   <tr key={u.id} className="hover:bg-gray-50/80">
