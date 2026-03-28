@@ -22,6 +22,7 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 | AI | Anthropic Claude API |
 | Email | SendGrid or Mailgun |
 | E2E Testing | Playwright (`@playwright/test`) |
+| Component testing | Vitest + React Testing Library + `@testing-library/jest-dom` (jsdom via Vite) |
 | Rate Limiting | `express-rate-limit` (production only) |
 | Client HTTP | **axios** (not `fetch`) |
 | Client server state | **TanStack Query** (`@tanstack/react-query`) |
@@ -48,7 +49,11 @@ helpdesk/
 │       ├── pages/
 │       │   ├── LoginPage.tsx
 │       │   ├── DashboardPage.tsx
-│       │   └── UsersPage.tsx       # Admin-only; route: /users
+│       │   ├── UsersPage.tsx       # Admin-only; route: /users
+│       │   └── UsersPage.test.tsx  # Colocated component tests (`*.test.tsx`)
+│       ├── test/
+│       │   ├── setup.ts            # Vitest: jest-dom matchers (`@testing-library/jest-dom/vitest`)
+│       │   └── render.tsx          # `renderWithProviders` (QueryClientProvider + test QueryClient)
 │       └── App.tsx
 └── server/                  # Express API (port 8080)
     ├── .env.test            # Test env (gitignored) — points to helpdesk_test DB
@@ -101,6 +106,16 @@ helpdesk/
 - Use the **`playwright-e2e-writer` subagent** to write all Playwright tests — invoke it with: _"Use the playwright-e2e-writer to write tests for [feature]"_
 - Tests live in `e2e/*.spec.ts`; run with `bun run test:e2e` from the repo root
 - See the `playwright-e2e-writer` agent (`.cursor/agents/playwright-e2e-writer.md`) for full setup details, conventions, and code patterns
+
+## Component testing (Vitest + React Testing Library)
+- **Run (repo root):** `bun run test:client` — runs all client Vitest tests once (`vitest run` in `client/`)
+- **Run (client package):** `bun run test` (CI-style single run) or `bun run test:watch` (watch mode)
+- **Config:** `client/vite.config.ts` — `test.environment: "jsdom"`, `test.globals: true`, `test.setupFiles: "./src/test/setup.ts"`
+- **Writing tests:** colocate `*.test.tsx` next to the component or page under test; use `@testing-library/react` (`screen`, `waitFor`, `within`, user-centric queries). Prefer roles and accessible names over CSS/test IDs unless necessary
+- **Matchers:** `client/src/test/setup.ts` imports `@testing-library/jest-dom/vitest` so `expect(...).toBeInTheDocument()` and related matchers work
+- **React Query:** wrap components that use `useQuery` / `useMutation` with `renderWithProviders` from `@/test/render` (test `QueryClient` uses `retry: false` and `gcTime: 0` so async tests stay deterministic)
+- **HTTP:** mock `axios` (or the module under test) with `vi.mock` — preserve `importOriginal` when the component uses `axios.isAxiosError` or other helpers
+- **Scope:** component tests cover UI states (loading, success, empty, error); cross-browser flows and real backends belong in Playwright E2E tests
 
 ## Conventions
 - All server source files use ESM (`import/export`), `.js` extensions in imports
