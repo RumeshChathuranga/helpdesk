@@ -6,6 +6,7 @@ config({ path: resolve(__dirname, "server/.env.test") });
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "./e2e/test-results",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
