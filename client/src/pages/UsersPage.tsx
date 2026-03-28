@@ -1,70 +1,17 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import axios, { isAxiosError } from "axios";
+import axios from "axios";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Skeleton } from "@/components/ui/skeleton";
-
-type UserListItem = {
-  id: string;
-  name: string;
-  email: string;
-  role: "ADMIN" | "AGENT";
-  emailVerified: boolean;
-  createdAt: string;
-};
+import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/getErrorMessage";
+import { CreateUserDialog } from "./CreateUserDialog";
+import { UsersTable, type UserListItem } from "./UsersTable";
 
 type UsersResponse = { users: UserListItem[] };
 
-function getErrorMessage(e: unknown): string {
-  if (isAxiosError(e)) {
-    const d = e.response?.data;
-    if (
-      d &&
-      typeof d === "object" &&
-      "error" in d &&
-      typeof (d as { error: unknown }).error === "string"
-    ) {
-      return (d as { error: string }).error;
-    }
-    return e.message;
-  }
-  if (e instanceof Error) {
-    return e.message;
-  }
-  return "Something went wrong";
-}
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-const SKELETON_ROWS = 6;
-
-function UsersTableHead() {
-  return (
-    <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
-      <tr>
-        <th scope="col" className="px-4 py-3">
-          Name
-        </th>
-        <th scope="col" className="px-4 py-3">
-          Email
-        </th>
-        <th scope="col" className="px-4 py-3">
-          Role
-        </th>
-        <th scope="col" className="px-4 py-3">
-          Verified
-        </th>
-        <th scope="col" className="px-4 py-3">
-          Created
-        </th>
-      </tr>
-    </thead>
-  );
-}
-
 export function UsersPage() {
+  const [createOpen, setCreateOpen] = useState(false);
+
   const { data, isPending, isError, error, isSuccess } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: async () => {
@@ -80,43 +27,20 @@ export function UsersPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Users</h1>
-
-      {isPending && (
-        <div
-          className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
-          role="status"
-          aria-busy="true"
-          aria-label="Loading users"
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+        <Button
+          type="button"
+          className="shrink-0"
+          onClick={() => setCreateOpen(true)}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <UsersTableHead />
-              <tbody className="divide-y divide-gray-100">
-                {Array.from({ length: SKELETON_ROWS }, (_, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-28" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-44 max-w-full" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-5 w-16 rounded-md" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-9" />
-                    </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-40" />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          Create user
+        </Button>
+      </div>
+
+      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+
+      {isPending && <UsersTable variant="loading" />}
 
       {isError && (
         <Alert variant="destructive">
@@ -130,40 +54,7 @@ export function UsersPage() {
       )}
 
       {isSuccess && data.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <UsersTableHead />
-              <tbody className="divide-y divide-gray-100">
-                {data.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50/80">
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {u.name}
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={
-                          u.role === "ADMIN"
-                            ? "inline-flex rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800"
-                            : "inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800"
-                        }
-                      >
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {u.emailVerified ? "Yes" : "No"}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 tabular-nums">
-                      {dateFormatter.format(new Date(u.createdAt))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <UsersTable variant="data" users={data} />
       )}
     </div>
   );

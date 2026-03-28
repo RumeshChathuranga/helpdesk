@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "client",
-    "server"
+    "server",
+    "packages/core"
   ],
   "scripts": {
     "dev": "bun run --filter '*' dev",

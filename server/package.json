@@ -18,11 +18,13 @@
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.0.0",
     "better-auth": "^1.5.6",
+    "core": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^17.3.1",
     "express": "^5.1.0",
     "express-session": "^1.18.1",
-    "helmet": "^8.0.0"
+    "helmet": "^8.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -1,7 +1,6 @@
 import "dotenv/config";
-import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
 import { Role } from "@prisma/client";
+import { signUpEmailInternal } from "../src/lib/internalEmailSignUp.js";
 import { prisma } from "../src/lib/prisma.js";
 
 const email = process.env.SEED_ADMIN_EMAIL!;
@@ -12,11 +11,6 @@ if (!email || !password) {
   process.exit(1);
 }
 
-const seedAuth = betterAuth({
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
-  emailAndPassword: { enabled: true },
-});
-
 const existing = await prisma.user.findUnique({ where: { email } });
 if (existing) {
   console.log(`User ${email} already exists — skipping creation`);
@@ -25,9 +19,7 @@ if (existing) {
   process.exit(0);
 }
 
-await seedAuth.api.signUpEmail({
-  body: { email, password, name: "Admin" },
-});
+await signUpEmailInternal({ email, password, name: "Admin" });
 
 await prisma.user.update({ where: { email }, data: { role: Role.ADMIN } });
 console.log(`Admin user created: ${email}`);

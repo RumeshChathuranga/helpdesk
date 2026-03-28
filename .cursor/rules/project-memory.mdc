@@ -26,6 +26,7 @@ An internal helpdesk platform for support agents to manage tickets, powered by A
 | Rate Limiting | `express-rate-limit` (production only) |
 | Client HTTP | **axios** (not `fetch`) |
 | Client server state | **TanStack Query** (`@tanstack/react-query`) |
+| Shared code | **`core`** workspace package (`packages/core`) — Zod schemas and types used by both client and server |
 
 ## Monorepo Structure
 
@@ -35,6 +36,8 @@ helpdesk/
 │   ├── global-setup.ts      # Runs prisma migrate deploy on helpdesk_test before suite
 │   └── global-teardown.ts   # Resets test DB on CI after suite
 ├── playwright.config.ts     # Playwright config — loads server/.env.test, spins up both servers
+├── packages/
+│   └── core/                # Shared Zod schemas + inferred types; export via package name `core`
 ├── client/                  # React app (port 5173)
 │   ├── components.json      # shadcn config
 │   └── src/
@@ -74,6 +77,7 @@ helpdesk/
 
 - Vite proxies `/api/*` → `http://localhost:8080`
 - Run everything: `bun dev:server` and `bun dev:client` from root
+- **`bun install` from the repo root** links workspaces (`client`, `server`, `packages/core`). Client and server depend on **`core`** via `"core": "workspace:*"` — import shared schemas from `"core"` (e.g. `createUserBodySchema`, `CreateUserBody`)
 - **`main.tsx`** wraps the app with `QueryClientProvider` (shared `QueryClient` with sensible `defaultOptions`, e.g. `staleTime` for queries)
 
 ## Prisma Models
@@ -118,8 +122,10 @@ helpdesk/
 - **Scope:** component tests cover UI states (loading, success, empty, error); cross-browser flows and real backends belong in Playwright E2E tests
 
 ## Conventions
+- **Shared validation:** API request bodies and matching client forms should use the same Zod schema in **`packages/core`** (export from `core`) so rules and error messages stay in sync — avoid duplicating `z.object({...})` in `client/` and `server/`
 - All server source files use ESM (`import/export`), `.js` extensions in imports
 - Express route files export a typed `IRouter`; mount under `/api` in `app.ts`
+- **Express 5 async errors:** Returned promises from route handlers are supported; if an `async` handler’s promise rejects, Express forwards the error to error-handling middleware (you do not need `try/catch` solely to avoid unhandled rejections). Use `try/catch` (or `catch` on a specific call) only when you must handle errors locally—e.g. map known errors to a specific status/body and `return` without calling `next(err)`.
 - Prisma client is a singleton in `server/src/lib/prisma.ts`
 - Frontend path alias `@/` maps to `client/src/`
 - Tailwind brand color token: `brand-{50..900}` (blue scale) — preserved alongside shadcn tokens

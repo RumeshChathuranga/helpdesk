@@ -7,23 +7,19 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  try {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(req.headers),
-    });
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+  });
 
-    if (!session) {
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    if (session.user.role !== "ADMIN") {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
-
-    next();
-  } catch (err) {
-    next(err);
+  if (!session) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
   }
+
+  if (session.user.role !== "ADMIN") {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  next();
 }

@@ -1,12 +1,6 @@
-import { betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
 import { Role } from "@prisma/client";
+import { signUpEmailInternal } from "../src/lib/internalEmailSignUp.js";
 import { prisma } from "../src/lib/prisma.js";
-
-const seedAuth = betterAuth({
-  database: prismaAdapter(prisma, { provider: "postgresql" }),
-  emailAndPassword: { enabled: true },
-});
 
 async function ensureUser(
   email: string,
@@ -20,7 +14,7 @@ async function ensureUser(
     console.log(`[seed-test] ${email} already exists — role set to ${role}`);
     return;
   }
-  await seedAuth.api.signUpEmail({ body: { email, password, name } });
+  await signUpEmailInternal({ email, password, name });
   await prisma.user.update({ where: { email }, data: { role } });
   console.log(`[seed-test] Created ${role} user: ${email}`);
 }
