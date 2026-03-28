@@ -34,6 +34,7 @@ model User {
   emailVerified Boolean
   image         String?
   role          Role      @default(AGENT)
+  deletedAt     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

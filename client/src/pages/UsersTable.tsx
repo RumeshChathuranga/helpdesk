@@ -1,4 +1,6 @@
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pencil, Trash2 } from "lucide-react";
 
 export type UserListItem = {
   id: string;
@@ -35,6 +37,9 @@ function UsersTableHead() {
         <th scope="col" className="px-4 py-3">
           Created
         </th>
+        <th scope="col" className="px-4 py-3 w-[1%]">
+          <span className="sr-only">Actions</span>
+        </th>
       </tr>
     </thead>
   );
@@ -42,11 +47,19 @@ function UsersTableHead() {
 
 type UsersTableProps =
   | { variant: "loading" }
-  | { variant: "data"; users: UserListItem[] };
+  | {
+      variant: "data";
+      users: UserListItem[];
+      onEditUser?: (user: UserListItem) => void;
+      onDeleteUser?: (user: UserListItem) => void;
+    };
 
 export function UsersTable(props: UsersTableProps) {
   const isLoading = props.variant === "loading";
   const users = props.variant === "data" ? props.users : [];
+  const onEditUser = props.variant === "data" ? props.onEditUser : undefined;
+  const onDeleteUser =
+    props.variant === "data" ? props.onDeleteUser : undefined;
 
   return (
     <div
@@ -81,6 +94,9 @@ export function UsersTable(props: UsersTableProps) {
                     <td className="px-4 py-3">
                       <Skeleton className="h-4 w-40" />
                     </td>
+                    <td className="px-4 py-3">
+                      <Skeleton className="h-8 w-8 rounded-md mx-auto" />
+                    </td>
                   </tr>
                 ))
               : users.map((u) => (
@@ -105,6 +121,34 @@ export function UsersTable(props: UsersTableProps) {
                     </td>
                     <td className="px-4 py-3 text-gray-600 tabular-nums">
                       {dateFormatter.format(new Date(u.createdAt))}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex items-center gap-0.5">
+                        {onEditUser && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-600 hover:text-gray-900"
+                            aria-label={`Edit user ${u.name}`}
+                            onClick={() => onEditUser(u)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onDeleteUser && u.role !== "ADMIN" && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-gray-600 hover:text-destructive"
+                            aria-label={`Delete user ${u.name}`}
+                            onClick={() => onDeleteUser(u)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

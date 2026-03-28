@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { useForm } from "react-hook-form";
-import { createUserBodySchema, type CreateUserBody } from "core";
+import { useEffect } from "react";
+import { useForm, type Resolver } from "react-hook-form";
+import { updateUserBodySchema } from "core";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,34 +16,51 @@ import {
 import { Form } from "@/components/ui/form";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import {
+  type AccountFormValues,
   FormRootErrorAlert,
   UserAccountFormFields,
 } from "./UserAccountFormFields";
 import { type UserListItem } from "./UsersTable";
 
-type CreateUserResponse = { user: UserListItem };
+type EditUserResponse = { user: UserListItem };
 
-type CreateUserDialogProps = {
+type EditUserDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  user: UserListItem | null;
 };
 
-export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps) {
   const queryClient = useQueryClient();
 
-  const form = useForm<CreateUserBody>({
-    resolver: zodResolver(createUserBodySchema),
+  const form = useForm<AccountFormValues>({
+    resolver: zodResolver(
+      updateUserBodySchema,
+    ) as Resolver<AccountFormValues>,
     defaultValues: { name: "", email: "", password: "" },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (values: CreateUserBody) => {
-      const { data: body } = await axios.post<CreateUserResponse>(
-        "/api/users",
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name,
+        email: user.email,
+        password: "",
+      });
+    }
+  }, [user, form]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (values: AccountFormValues) => {
+      if (!user) {
+        throw new Error("No user selected");
+      }
+      const { data } = await axios.patch<EditUserResponse>(
+        `/api/users/${user.id}`,
         values,
         { withCredentials: true },
       );
-      return body.user;
+      return data.user;
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -56,14 +74,15 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     if (!next) {
       form.reset();
       form.clearErrors("root");
-      createMutation.reset();
+      updateMutation.reset();
     }
   }
 
-  async function onSubmit(values: CreateUserBody) {
+  async function onSubmit(values: AccountFormValues) {
+    if (!user) return;
     form.clearErrors("root");
     try {
-      await createMutation.mutateAsync(values);
+      await updateMutation.mutateAsync(values);
     } catch (e) {
       form.setError("root", { message: getErrorMessage(e) });
     }
@@ -73,9 +92,9 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create user</DialogTitle>
+          <DialogTitle>Edit user</DialogTitle>
           <DialogDescription>
-            Add a new agent account. They can sign in with this email and
+            Update this account. Leave the password blank to keep the current
             password.
           </DialogDescription>
         </DialogHeader>
@@ -90,7 +109,7 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
             />
             <UserAccountFormFields
               control={form.control}
-              passwordVariant="create"
+              passwordVariant="edit"
             />
             <DialogFooter className="gap-2 sm:gap-0">
               <Button
@@ -100,8 +119,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Creating…" : "Create"}
+              <Button type="submit" disabled={updateMutation.isPending || !user}>
+                {updateMutation.isPending ? "Saving…" : "Save"}
               </Button>
             </DialogFooter>
           </form>

@@ -5,12 +5,20 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import { CreateUserDialog } from "./CreateUserDialog";
+import { DeleteUserDialog } from "./DeleteUserDialog";
+import { EditUserDialog } from "./EditUserDialog";
 import { UsersTable, type UserListItem } from "./UsersTable";
 
 type UsersResponse = { users: UserListItem[] };
 
+type UsersDialogState =
+  | { mode: "closed" }
+  | { mode: "create" }
+  | { mode: "edit"; user: UserListItem }
+  | { mode: "delete"; user: UserListItem };
+
 export function UsersPage() {
-  const [createOpen, setCreateOpen] = useState(false);
+  const [dialog, setDialog] = useState<UsersDialogState>({ mode: "closed" });
 
   const { data, isPending, isError, error, isSuccess } = useQuery({
     queryKey: ["admin", "users"],
@@ -32,13 +40,34 @@ export function UsersPage() {
         <Button
           type="button"
           className="shrink-0"
-          onClick={() => setCreateOpen(true)}
+          onClick={() => setDialog({ mode: "create" })}
         >
           Create user
         </Button>
       </div>
 
-      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateUserDialog
+        open={dialog.mode === "create"}
+        onOpenChange={(next) => {
+          if (!next) setDialog({ mode: "closed" });
+        }}
+      />
+
+      <EditUserDialog
+        open={dialog.mode === "edit"}
+        onOpenChange={(next) => {
+          if (!next) setDialog({ mode: "closed" });
+        }}
+        user={dialog.mode === "edit" ? dialog.user : null}
+      />
+
+      <DeleteUserDialog
+        open={dialog.mode === "delete"}
+        onOpenChange={(next) => {
+          if (!next) setDialog({ mode: "closed" });
+        }}
+        user={dialog.mode === "delete" ? dialog.user : null}
+      />
 
       {isPending && <UsersTable variant="loading" />}
 
@@ -54,7 +83,12 @@ export function UsersPage() {
       )}
 
       {isSuccess && data.length > 0 && (
-        <UsersTable variant="data" users={data} />
+        <UsersTable
+          variant="data"
+          users={data}
+          onEditUser={(u) => setDialog({ mode: "edit", user: u })}
+          onDeleteUser={(u) => setDialog({ mode: "delete", user: u })}
+        />
       )}
     </div>
   );
