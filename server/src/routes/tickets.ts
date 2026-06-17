@@ -1,6 +1,8 @@
 import {
   createTicketBodySchema,
+  DEFAULT_TICKET_LIST_SORT,
   listTicketsQuerySchema,
+  ticketListSortToOrderBy,
   updateTicketBodySchema,
 } from "core";
 import { Router, type IRouter } from "express";
@@ -45,10 +47,7 @@ ticketsRouter.get("/", requireAgent, async (req, res) => {
   }
 
   const { status, category, sort } = parsed.data;
-  const orderBy =
-    sort === "createdAt_asc"
-      ? { createdAt: "asc" as const }
-      : { createdAt: "desc" as const };
+  const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
   const tickets = await prisma.ticket.findMany({
     where: {

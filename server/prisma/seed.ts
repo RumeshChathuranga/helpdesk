@@ -2,6 +2,7 @@ import "dotenv/config";
 import { Role } from "@prisma/client";
 import { signUpEmailInternal } from "../src/lib/internalEmailSignUp.js";
 import { prisma } from "../src/lib/prisma.js";
+import { buildTicketFixtures } from "./ticketFixtures.js";
 
 const email = process.env.SEED_ADMIN_EMAIL!;
 const password = process.env.SEED_ADMIN_PASSWORD!;
@@ -26,55 +27,25 @@ async function ensureAdmin() {
 }
 
 async function seedSampleTickets() {
-  const count = await prisma.ticket.count();
-  if (count > 0) {
-    console.log(`Skipping ticket seed — ${count} ticket(s) already exist`);
-    return;
+  const fixtures = buildTicketFixtures(100);
+
+  for (const ticket of fixtures) {
+    await prisma.ticket.upsert({
+      where: { externalMessageId: ticket.externalMessageId },
+      create: ticket,
+      update: {
+        subject: ticket.subject,
+        body: ticket.body,
+        status: ticket.status,
+        category: ticket.category,
+        fromEmail: ticket.fromEmail,
+        fromName: ticket.fromName,
+        createdAt: ticket.createdAt,
+      },
+    });
   }
 
-  const now = Date.now();
-  await prisma.ticket.createMany({
-    data: [
-      {
-        subject: "Cannot reset password",
-        body: "I tried the forgot-password link but never received an email.",
-        status: "OPEN",
-        category: "TECHNICAL",
-        fromEmail: "customer@example.com",
-        fromName: "Jane Customer",
-        createdAt: new Date(now - 2 * 60 * 60 * 1000),
-      },
-      {
-        subject: "Invoice for March",
-        body: "Could you send a copy of my March invoice?",
-        status: "IN_PROGRESS",
-        category: "BILLING",
-        fromEmail: "billing@example.com",
-        fromName: "Acme Corp",
-        createdAt: new Date(now - 24 * 60 * 60 * 1000),
-      },
-      {
-        subject: "Feature request: dark mode",
-        body: "It would be great to have a dark mode option in the dashboard.",
-        status: "OPEN",
-        category: "FEATURE_REQUEST",
-        fromEmail: "dev@example.com",
-        fromName: "Sam Developer",
-        createdAt: new Date(now - 3 * 24 * 60 * 60 * 1000),
-      },
-      {
-        subject: "Login page error on mobile",
-        body: "Seeing a blank screen when logging in from Safari on iOS.",
-        status: "RESOLVED",
-        category: "BUG",
-        fromEmail: "mobile@example.com",
-        fromName: null,
-        createdAt: new Date(now - 7 * 24 * 60 * 60 * 1000),
-      },
-    ],
-  });
-
-  console.log("Created 4 sample tickets");
+  console.log(`Ensured ${fixtures.length} sample tickets`);
 }
 
 await ensureAdmin();

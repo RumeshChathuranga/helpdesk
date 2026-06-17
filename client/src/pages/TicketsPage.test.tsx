@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
@@ -23,7 +23,7 @@ const listTickets = [
     status: "OPEN" as const,
     category: "TECHNICAL" as const,
     priority: 0,
-    fromEmail: "customer@example.com",
+    fromEmail: "jane.customer@gmail.com",
     fromName: "Jane Customer",
     assignedToId: null,
     createdById: null,
@@ -72,6 +72,7 @@ describe("TicketsPage", () => {
     });
 
     expect(screen.getByText("Jane Customer")).toBeInTheDocument();
+    expect(screen.getByText("jane.customer@gmail.com")).toBeInTheDocument();
     expect(screen.getByText("Invoice question")).toBeInTheDocument();
     expect(screen.getByText("billing@example.com")).toBeInTheDocument();
     expect(screen.getByText("Open")).toBeInTheDocument();
@@ -117,6 +118,44 @@ describe("TicketsPage", () => {
     expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
       params: { sort: "createdAt_desc" },
       withCredentials: true,
+    });
+  });
+
+  it("requests subject ascending when the Subject header is clicked", async () => {
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Subject" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sort: "subject_asc" },
+        withCredentials: true,
+      });
+    });
+  });
+
+  it("toggles Created sort to ascending when the Created header is clicked", async () => {
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Created" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sort: "createdAt_asc" },
+        withCredentials: true,
+      });
     });
   });
 });

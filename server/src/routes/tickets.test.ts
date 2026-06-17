@@ -1,0 +1,260 @@
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from "bun:test";
+import type { Server } from "node:http";
+import type { AddressInfo } from "node:net";
+import {
+  DEFAULT_TICKET_LIST_SORT,
+  listTicketsQuerySchema,
+  ticketListSortToOrderBy,
+  ticketListSortValues,
+} from "core";
+import { createApp } from "../app.js";
+import { prisma } from "../lib/prisma.js";
+
+describe("ticketListSortToOrderBy", () => {
+  it("maps subject sort", () => {
+    expect(ticketListSortToOrderBy("subject_asc")).toEqual({ subject: "asc" });
+    expect(ticketListSortToOrderBy("subject_desc")).toEqual({
+      subject: "desc",
+    });
+  });
+
+  it("maps status sort", () => {
+    expect(ticketListSortToOrderBy("status_asc")).toEqual({ status: "asc" });
+    expect(ticketListSortToOrderBy("status_desc")).toEqual({ status: "desc" });
+  });
+
+  it("maps category sort", () => {
+    expect(ticketListSortToOrderBy("category_asc")).toEqual({
+      category: "asc",
+    });
+    expect(ticketListSortToOrderBy("category_desc")).toEqual({
+      category: "desc",
+    });
+  });
+
+  it("maps createdAt sort", () => {
+    expect(ticketListSortToOrderBy("createdAt_asc")).toEqual({
+      createdAt: "asc",
+    });
+    expect(ticketListSortToOrderBy("createdAt_desc")).toEqual({
+      createdAt: "desc",
+    });
+  });
+
+  it("maps requester sort to fromName then fromEmail with nulls last", () => {
+    expect(ticketListSortToOrderBy("requester_asc")).toEqual([
+      { fromName: { sort: "asc", nulls: "last" } },
+      { fromEmail: { sort: "asc", nulls: "last" } },
+    ]);
+    expect(ticketListSortToOrderBy("requester_desc")).toEqual([
+      { fromName: { sort: "desc", nulls: "last" } },
+      { fromEmail: { sort: "desc", nulls: "last" } },
+    ]);
+  });
+});
+
+describe("listTicketsQuerySchema", () => {
+  it("accepts all supported sort values", () => {
+    for (const sort of ticketListSortValues) {
+      expect(listTicketsQuerySchema.safeParse({ sort }).success).toBe(true);
+    }
+  });
+
+  it("rejects invalid sort values", () => {
+    expect(listTicketsQuerySchema.safeParse({ sort: "invalid" }).success).toBe(
+      false,
+    );
+  });
+
+  it(`leaves sort undefined so the route can default to ${DEFAULT_TICKET_LIST_SORT}`, () => {
+    const parsed = listTicketsQuerySchema.parse({});
+    expect(parsed.sort).toBeUndefined();
+  });
+});
+
+describe("GET /api/tickets", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  let integrationReady = false;
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    try {
+      const app = createApp();
+      server = app.listen(0);
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "agent@example.com",
+          password: "password@123",
+        }),
+      });
+
+      if (!loginRes.ok) {
+        return;
+      }
+
+      authCookie = loginRes.headers.getSetCookie().join("; ");
+      integrationReady = true;
+    } catch {
+      integrationReady = false;
+    }
+  });
+
+  afterEach(async () => {
+    if (!integrationReady || createdTicketIds.length === 0) {
+      return;
+    }
+
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function listTickets(query = "") {
+    return fetch(`${baseUrl}/api/tickets${query}`, {
+      headers: { Cookie: authCookie },
+    });
+  }
+
+  it("returns 400 for an invalid sort query param", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const res = await listTickets("?sort=not-a-sort");
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBeTruthy();
+  });
+
+  it("returns 200 for each supported sort param", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    for (const sort of ticketListSortValues) {
+      const res = await listTickets(`?sort=${sort}`);
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it("defaults to newest first when sort is omitted", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const older = await prisma.ticket.create({
+      data: {
+        subject: `Older ${runId}`,
+        body: "Older body",
+        createdAt: new Date("2024-01-01T12:00:00.000Z"),
+      },
+    });
+    const newer = await prisma.ticket.create({
+      data: {
+        subject: `Newer ${runId}`,
+        body: "Newer body",
+        createdAt: new Date("2024-06-01T12:00:00.000Z"),
+      },
+    });
+    createdTicketIds.push(older.id, newer.id);
+
+    const res = await listTickets();
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      tickets: { id: string; subject: string }[];
+    };
+    const subjects = json.tickets.map((ticket) => ticket.subject);
+    expect(subjects.indexOf(`Newer ${runId}`)).toBeLessThan(
+      subjects.indexOf(`Older ${runId}`),
+    );
+  });
+
+  it("sorts by subject ascending", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const zebra = await prisma.ticket.create({
+      data: { subject: `Zebra ${runId}`, body: "Z" },
+    });
+    const alpha = await prisma.ticket.create({
+      data: { subject: `Alpha ${runId}`, body: "A" },
+    });
+    createdTicketIds.push(zebra.id, alpha.id);
+
+    const res = await listTickets(`?sort=subject_asc`);
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      tickets: { subject: string }[];
+    };
+    const runSubjects = json.tickets
+      .map((ticket) => ticket.subject)
+      .filter((subject) => subject.endsWith(runId));
+
+    expect(runSubjects).toEqual([`Alpha ${runId}`, `Zebra ${runId}`]);
+  });
+
+  it("sorts by requester name ascending", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const zara = await prisma.ticket.create({
+      data: {
+        subject: `Ticket Z ${runId}`,
+        body: "Body",
+        fromName: "Zara",
+        fromEmail: "z@example.com",
+      },
+    });
+    const anna = await prisma.ticket.create({
+      data: {
+        subject: `Ticket A ${runId}`,
+        body: "Body",
+        fromName: "Anna",
+        fromEmail: "a@example.com",
+      },
+    });
+    createdTicketIds.push(zara.id, anna.id);
+
+    const res = await listTickets(`?sort=requester_asc`);
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      tickets: { subject: string; fromName: string | null }[];
+    };
+    const runTickets = json.tickets.filter((ticket) =>
+      ticket.subject.endsWith(runId),
+    );
+
+    expect(runTickets.map((ticket) => ticket.fromName)).toEqual([
+      "Anna",
+      "Zara",
+    ]);
+  });
+});

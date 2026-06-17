@@ -21,8 +21,16 @@ export {
   type CreateTicketBody,
 } from "./createTicket.js";
 export {
+  DEFAULT_TICKET_LIST_SORT,
   listTicketsQuerySchema,
+  sortingStateToTicketListSort,
+  ticketListSortToOrderBy,
+  ticketListSortToSortingState,
+  ticketListSortValues,
   type ListTicketsQuery,
+  type TicketListOrderBy,
+  type TicketListSort,
+  type TicketListSortingState,
 } from "./listTickets.js";
 export {
   updateTicketBodySchema,
