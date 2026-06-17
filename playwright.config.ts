@@ -4,6 +4,10 @@ import { resolve } from "path";
 
 config({ path: resolve(__dirname, "server/.env.test") });
 
+const E2E_API_PORT = "8081";
+const E2E_API_URL = `http://localhost:${E2E_API_PORT}`;
+process.env.E2E_API_URL = E2E_API_URL;
+
 export default defineConfig({
   testDir: "./e2e",
   outputDir: "./e2e/test-results",
@@ -33,16 +37,18 @@ export default defineConfig({
   webServer: [
     {
       command: "bun run --filter server test:server",
-      url: "http://localhost:8080/api/health",
+      url: `${E2E_API_URL}/api/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
       env: {
         DATABASE_URL: process.env.DATABASE_URL!,
         BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET!,
-        BETTER_AUTH_URL: process.env.BETTER_AUTH_URL!,
+        BETTER_AUTH_URL: E2E_API_URL,
         CLIENT_URL: process.env.CLIENT_URL!,
+        INBOUND_WEBHOOK_SECRET:
+          process.env.INBOUND_WEBHOOK_SECRET ?? "test-inbound-webhook-secret",
         NODE_ENV: "test",
-        PORT: "8080",
+        PORT: E2E_API_PORT,
       },
     },
     {
@@ -50,6 +56,9 @@ export default defineConfig({
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 30_000,
+      env: {
+        VITE_API_PROXY_TARGET: E2E_API_URL,
+      },
     },
   ],
 
