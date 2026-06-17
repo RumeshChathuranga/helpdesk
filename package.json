@@ -17,6 +17,7 @@
     "db:migrate": "bun run --filter server db:migrate",
     "db:push": "bun run --filter server db:push",
     "test:client": "bun run --filter client test",
+    "test:server": "bun run --filter server test:unit",
     "test:e2e": "bunx playwright test",
     "test:e2e:ui": "bunx playwright test --ui",
     "test:e2e:headed": "bunx playwright test --headed",

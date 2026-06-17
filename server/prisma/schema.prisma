@@ -84,17 +84,18 @@ model Verification {
 }
 
 model Ticket {
-  id          String         @id @default(cuid())
-  subject     String
-  body        String
-  status      TicketStatus   @default(OPEN)
-  category    TicketCategory @default(OTHER)
-  priority    Int            @default(0)
-  fromEmail   String?
-  fromName    String?
-  aiSummary   String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id                String         @id @default(cuid())
+  subject           String
+  body              String
+  status            TicketStatus   @default(OPEN)
+  category          TicketCategory @default(OTHER)
+  priority          Int            @default(0)
+  fromEmail         String?
+  fromName          String?
+  externalMessageId String?        @unique
+  aiSummary         String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
 
   assignedTo   User?   @relation("AssignedAgent", fields: [assignedToId], references: [id])
   assignedToId String?
@@ -110,11 +111,12 @@ model Ticket {
 }
 
 model Reply {
-  id        String   @id @default(cuid())
-  body      String
-  isAi      Boolean  @default(false)
-  sentEmail Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  body              String
+  isAi              Boolean  @default(false)
+  sentEmail         Boolean  @default(false)
+  externalMessageId String?
+  createdAt         DateTime @default(now())
 
   ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   ticketId String
