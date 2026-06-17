@@ -30,5 +30,60 @@ if (!adminEmail || !adminPassword) {
 await ensureUser(adminEmail, adminPassword, "Admin", Role.ADMIN);
 await ensureUser("agent@example.com", "password@123", "Agent", Role.AGENT);
 
+async function ensureSampleTicket(data: {
+  externalMessageId: string;
+  subject: string;
+  body: string;
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  category: "BILLING" | "TECHNICAL" | "GENERAL" | "FEATURE_REQUEST" | "BUG" | "OTHER";
+  fromEmail: string;
+  fromName: string;
+  createdAt: Date;
+}) {
+  await prisma.ticket.upsert({
+    where: { externalMessageId: data.externalMessageId },
+    create: data,
+    update: {
+      subject: data.subject,
+      body: data.body,
+      status: data.status,
+      category: data.category,
+      fromEmail: data.fromEmail,
+      fromName: data.fromName,
+      createdAt: data.createdAt,
+    },
+  });
+}
+
+async function seedSampleTickets() {
+  const now = Date.now();
+
+  await ensureSampleTicket({
+    externalMessageId: "seed-test-reset-password",
+    subject: "Cannot reset password",
+    body: "I tried the forgot-password link but never received an email.",
+    status: "OPEN",
+    category: "TECHNICAL",
+    fromEmail: "customer@example.com",
+    fromName: "Jane Customer",
+    createdAt: new Date(now - 2 * 60 * 60 * 1000),
+  });
+
+  await ensureSampleTicket({
+    externalMessageId: "seed-test-invoice-march",
+    subject: "Invoice for March",
+    body: "Could you send a copy of my March invoice?",
+    status: "IN_PROGRESS",
+    category: "BILLING",
+    fromEmail: "billing@example.com",
+    fromName: "Acme Corp",
+    createdAt: new Date(now - 24 * 60 * 60 * 1000),
+  });
+
+  console.log("[seed-test] Ensured 2 sample tickets");
+}
+
+await seedSampleTickets();
+
 await prisma.$disconnect();
 console.log("[seed-test] Done.");

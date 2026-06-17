@@ -4,6 +4,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { TicketsPage } from "./pages/TicketsPage";
 import { UsersPage } from "./pages/UsersPage";
 
 export function App() {
@@ -15,6 +16,7 @@ export function App() {
           <Route element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/tickets" element={<TicketsPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/users" element={<UsersPage />} />
             </Route>

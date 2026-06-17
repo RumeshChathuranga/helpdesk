@@ -192,3 +192,24 @@ ticketsRouter.patch("/:id", requireAgent, async (req, res) => {
 
   res.json({ ticket });
 });
+
+ticketsRouter.delete("/:id", requireAgent, async (req, res) => {
+  const id = parseRouteId(req.params.id);
+  if (!id) {
+    res.status(400).json({ error: "Invalid ticket id" });
+    return;
+  }
+
+  const existing = await prisma.ticket.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  await prisma.ticket.delete({ where: { id } });
+  res.status(204).send();
+});
