@@ -13,3 +13,4 @@ generated/
 playwright-report/
 e2e/test-results/
 .playwright/
+.fuse_hidden*
