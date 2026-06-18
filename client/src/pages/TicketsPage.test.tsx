@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes } from "react-router";
 import { renderWithProviders } from "@/test/render";
 import { TicketsPage } from "./TicketsPage";
 
@@ -59,6 +60,16 @@ function ticketListResponse(
   };
 }
 
+function renderTicketsPage() {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={["/tickets"]}>
+      <Routes>
+        <Route path="/tickets" element={<TicketsPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 beforeEach(() => {
   mockedGet.mockReset();
   mockedGet.mockResolvedValue(ticketListResponse(listTickets));
@@ -68,7 +79,7 @@ describe("TicketsPage", () => {
   it("shows loading skeleton while request is pending", () => {
     mockedGet.mockImplementation(() => new Promise(() => {}));
 
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     expect(screen.getByRole("heading", { name: "Tickets" })).toBeInTheDocument();
     const status = screen.getByRole("status", { name: "Loading tickets" });
@@ -79,7 +90,7 @@ describe("TicketsPage", () => {
   });
 
   it("renders ticket rows when API succeeds", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -97,10 +108,21 @@ describe("TicketsPage", () => {
     expect(within(invoiceRow).getByText("In progress")).toBeInTheDocument();
   });
 
+  it("links ticket subjects to their detail page", async () => {
+    renderTicketsPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    const link = screen.getByRole("link", { name: "Cannot reset password" });
+    expect(link).toHaveAttribute("href", "/tickets/t1");
+  });
+
   it('shows "No tickets found" when the list is empty', async () => {
     mockedGet.mockResolvedValue(ticketListResponse([], { total: 0 }));
 
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("No tickets found.")).toBeInTheDocument();
@@ -118,7 +140,7 @@ describe("TicketsPage", () => {
     };
     mockedGet.mockRejectedValue(err);
 
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Could not load tickets")).toBeInTheDocument();
@@ -127,7 +149,7 @@ describe("TicketsPage", () => {
   });
 
   it("requests tickets sorted newest first", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -140,7 +162,7 @@ describe("TicketsPage", () => {
   });
 
   it("requests subject ascending when the Subject header is clicked", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -159,7 +181,7 @@ describe("TicketsPage", () => {
   });
 
   it("toggles Created sort to ascending when the Created header is clicked", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -178,7 +200,7 @@ describe("TicketsPage", () => {
   });
 
   it("requests status filter when the Status dropdown changes", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -199,7 +221,7 @@ describe("TicketsPage", () => {
   });
 
   it("requests category filter when the Category dropdown changes", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -225,7 +247,7 @@ describe("TicketsPage", () => {
   });
 
   it("requests search term after the input is debounced", async () => {
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
@@ -260,7 +282,7 @@ describe("TicketsPage", () => {
       ticketListResponse(listTickets, { total: 40, page: 1, pageSize: 10 }),
     );
 
-    renderWithProviders(<TicketsPage />);
+    renderTicketsPage();
 
     await waitFor(() => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();

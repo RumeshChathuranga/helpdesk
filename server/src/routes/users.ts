@@ -6,6 +6,7 @@ import { hashPasswordForUser } from "../lib/hashPasswordForUser.js";
 import { signUpEmailInternal } from "../lib/internalEmailSignUp.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
+import { requireAgent } from "../middleware/requireAgent.js";
 
 const CREDENTIAL_PROVIDER_ID = "credential" as const;
 
@@ -23,6 +24,24 @@ const userListSelect = {
   emailVerified: true,
   createdAt: true,
 } as const;
+
+const agentListSelect = {
+  id: true,
+  name: true,
+  email: true,
+} as const;
+
+usersRouter.get("/agents", requireAgent, async (_req, res) => {
+  const users = await prisma.user.findMany({
+    where: {
+      deletedAt: null,
+      role: { in: [Role.ADMIN, Role.AGENT] },
+    },
+    orderBy: { name: "asc" },
+    select: agentListSelect,
+  });
+  res.json({ users });
+});
 
 usersRouter.get("/", requireAdmin, async (_req, res) => {
   const users = await prisma.user.findMany({

@@ -95,6 +95,9 @@ ticketsRouter.get("/:id", requireAgent, async (req, res) => {
       body: true,
       externalMessageId: true,
       aiSummary: true,
+      assignedTo: {
+        select: { id: true, name: true, email: true },
+      },
       replies: {
         orderBy: { createdAt: "asc" },
         select: {

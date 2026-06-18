@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-table";
 import type { TicketCategory, TicketStatus } from "core";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
+import { AppLink } from "@/components/AppLink";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -32,7 +33,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 
 const SKELETON_ROWS = 6;
 
-const STATUS_BADGE: Record<TicketStatus, string> = {
+export const STATUS_BADGE: Record<TicketStatus, string> = {
   OPEN: "inline-flex rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800",
   IN_PROGRESS:
     "inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800",
@@ -107,9 +108,9 @@ const columns: ColumnDef<TicketListItem>[] = [
     accessorKey: "subject",
     header: "Subject",
     cell: ({ row }) => (
-      <span className="font-medium text-gray-900 max-w-xs truncate block">
+      <AppLink to={`/tickets/${row.original.id}`} truncate>
         {row.original.subject}
-      </span>
+      </AppLink>
     ),
   },
   {

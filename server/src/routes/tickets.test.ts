@@ -310,3 +310,256 @@ describe("GET /api/tickets", () => {
     expect(json.tickets[0]?.subject).toBe(`Page B ${runId}`);
   });
 });
+
+describe("GET /api/tickets/:id", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  let integrationReady = false;
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    try {
+      const app = createApp();
+      server = app.listen(0);
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "agent@example.com",
+          password: "password@123",
+        }),
+      });
+
+      if (!loginRes.ok) {
+        return;
+      }
+
+      authCookie = loginRes.headers.getSetCookie().join("; ");
+      integrationReady = true;
+    } catch {
+      integrationReady = false;
+    }
+  });
+
+  afterEach(async () => {
+    if (!integrationReady || createdTicketIds.length === 0) {
+      return;
+    }
+
+    await prisma.reply.deleteMany({
+      where: { ticketId: { in: [...createdTicketIds] } },
+    });
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function getTicket(id: string) {
+    return fetch(`${baseUrl}/api/tickets/${id}`, {
+      headers: { Cookie: authCookie },
+    });
+  }
+
+  it("returns 200 with body, replies ordered asc, and assignedTo", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const agent = await prisma.user.findFirst({
+      where: { email: "agent@example.com", deletedAt: null },
+      select: { id: true },
+    });
+    if (!agent) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject: `Detail ${runId}`,
+        body: "Ticket body content",
+        assignedToId: agent.id,
+      },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const olderReply = await prisma.reply.create({
+      data: {
+        ticketId: ticket.id,
+        body: "First reply",
+        createdAt: new Date("2024-01-01T12:00:00.000Z"),
+      },
+    });
+    const newerReply = await prisma.reply.create({
+      data: {
+        ticketId: ticket.id,
+        body: "Second reply",
+        createdAt: new Date("2024-06-01T12:00:00.000Z"),
+      },
+    });
+
+    const res = await getTicket(ticket.id);
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      ticket: {
+        subject: string;
+        body: string;
+        assignedTo: { id: string; name: string; email: string } | null;
+        replies: { id: string; body: string }[];
+      };
+    };
+
+    expect(json.ticket.subject).toBe(`Detail ${runId}`);
+    expect(json.ticket.body).toBe("Ticket body content");
+    expect(json.ticket.assignedTo?.id).toBe(agent.id);
+    expect(json.ticket.replies.map((r) => r.id)).toEqual([
+      olderReply.id,
+      newerReply.id,
+    ]);
+    expect(json.ticket.replies.map((r) => r.body)).toEqual([
+      "First reply",
+      "Second reply",
+    ]);
+  });
+
+  it("returns 404 for a missing ticket", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const res = await getTicket("nonexistent-ticket-id");
+    expect(res.status).toBe(404);
+
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("Ticket not found");
+  });
+});
+
+describe("PATCH /api/tickets/:id", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  let integrationReady = false;
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    try {
+      const app = createApp();
+      server = app.listen(0);
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "agent@example.com",
+          password: "password@123",
+        }),
+      });
+
+      if (!loginRes.ok) {
+        return;
+      }
+
+      authCookie = loginRes.headers.getSetCookie().join("; ");
+      integrationReady = true;
+    } catch {
+      integrationReady = false;
+    }
+  });
+
+  afterEach(async () => {
+    if (!integrationReady || createdTicketIds.length === 0) {
+      return;
+    }
+
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function patchTicket(id: string, body: Record<string, unknown>) {
+    return fetch(`${baseUrl}/api/tickets/${id}`, {
+      method: "PATCH",
+      headers: {
+        Cookie: authCookie,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("updates status, category, and assignee", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const agent = await prisma.user.findFirst({
+      where: { email: "agent@example.com", deletedAt: null },
+      select: { id: true },
+    });
+    if (!agent) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject: `Patch ${runId}`,
+        body: "Body",
+        status: "OPEN",
+        category: "GENERAL",
+      },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await patchTicket(ticket.id, {
+      status: "IN_PROGRESS",
+      category: "TECHNICAL",
+      assignedToId: agent.id,
+    });
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      ticket: {
+        status: string;
+        category: string;
+        assignedToId: string | null;
+      };
+    };
+
+    expect(json.ticket.status).toBe("IN_PROGRESS");
+    expect(json.ticket.category).toBe("TECHNICAL");
+    expect(json.ticket.assignedToId).toBe(agent.id);
+  });
+
+  it("returns 404 for a missing ticket", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const res = await patchTicket("nonexistent-ticket-id", {
+      status: "CLOSED",
+    });
+    expect(res.status).toBe(404);
+
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("Ticket not found");
+  });
+});
