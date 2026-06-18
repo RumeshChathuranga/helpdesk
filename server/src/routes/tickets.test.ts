@@ -10,6 +10,7 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
   DEFAULT_TICKET_LIST_SORT,
+  DEFAULT_TICKET_PAGE_SIZE,
   listTicketsQuerySchema,
   ticketListSortToOrderBy,
   ticketListSortValues,
@@ -76,6 +77,18 @@ describe("listTicketsQuerySchema", () => {
   it(`leaves sort undefined so the route can default to ${DEFAULT_TICKET_LIST_SORT}`, () => {
     const parsed = listTicketsQuerySchema.parse({});
     expect(parsed.sort).toBeUndefined();
+    expect(parsed.page).toBe(1);
+    expect(parsed.pageSize).toBe(DEFAULT_TICKET_PAGE_SIZE);
+  });
+
+  it("rejects invalid pagination params", () => {
+    expect(listTicketsQuerySchema.safeParse({ page: 0 }).success).toBe(false);
+    expect(listTicketsQuerySchema.safeParse({ pageSize: 0 }).success).toBe(
+      false,
+    );
+    expect(listTicketsQuerySchema.safeParse({ pageSize: 101 }).success).toBe(
+      false,
+    );
   });
 });
 
@@ -179,7 +192,9 @@ describe("GET /api/tickets", () => {
     });
     createdTicketIds.push(older.id, newer.id);
 
-    const res = await listTickets();
+    const res = await listTickets(
+      `?search=${encodeURIComponent(runId)}&pageSize=100`,
+    );
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
@@ -205,7 +220,9 @@ describe("GET /api/tickets", () => {
     });
     createdTicketIds.push(zebra.id, alpha.id);
 
-    const res = await listTickets(`?sort=subject_asc`);
+    const res = await listTickets(
+      `?sort=subject_asc&search=${encodeURIComponent(runId)}&pageSize=100`,
+    );
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
@@ -242,7 +259,9 @@ describe("GET /api/tickets", () => {
     });
     createdTicketIds.push(zara.id, anna.id);
 
-    const res = await listTickets(`?sort=requester_asc`);
+    const res = await listTickets(
+      `?sort=requester_asc&search=${encodeURIComponent(runId)}&pageSize=100`,
+    );
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
@@ -256,5 +275,38 @@ describe("GET /api/tickets", () => {
       "Anna",
       "Zara",
     ]);
+  });
+
+  it("paginates ticket results", async () => {
+    if (!integrationReady) {
+      return;
+    }
+
+    const runId = crypto.randomUUID();
+    const first = await prisma.ticket.create({
+      data: { subject: `Page A ${runId}`, body: "A" },
+    });
+    const second = await prisma.ticket.create({
+      data: { subject: `Page B ${runId}`, body: "B" },
+    });
+    createdTicketIds.push(first.id, second.id);
+
+    const res = await listTickets(
+      `?sort=subject_asc&search=${encodeURIComponent(runId)}&page=2&pageSize=1`,
+    );
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      tickets: { subject: string }[];
+      total: number;
+      page: number;
+      pageSize: number;
+    };
+
+    expect(json.page).toBe(2);
+    expect(json.pageSize).toBe(1);
+    expect(json.total).toBeGreaterThanOrEqual(2);
+    expect(json.tickets).toHaveLength(1);
+    expect(json.tickets[0]?.subject).toBe(`Page B ${runId}`);
   });
 });

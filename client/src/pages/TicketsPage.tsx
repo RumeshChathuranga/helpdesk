@@ -2,6 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import { useTickets } from "@/hooks/useTickets";
 import { TicketFilters } from "./TicketFilters";
+import { TicketsPagination } from "./TicketsPagination";
 import { TicketsTable } from "./TicketsTable";
 
 export function TicketsPage() {
@@ -15,11 +16,17 @@ export function TicketsPage() {
     setStatusFilter,
     categoryFilter,
     setCategoryFilter,
+    page,
+    pageSize,
+    total,
+    setPage,
     isPending,
     isError,
     error,
     isSuccess,
   } = useTickets();
+
+  const showTable = isSuccess && tickets.length > 0;
 
   return (
     <div>
@@ -55,13 +62,21 @@ export function TicketsPage() {
         <p className="text-gray-600">No tickets found.</p>
       )}
 
-      {isSuccess && tickets.length > 0 && (
-        <TicketsTable
-          variant="data"
-          tickets={tickets}
-          sorting={sorting}
-          onSortingChange={setSorting}
-        />
+      {showTable && (
+        <>
+          <TicketsTable
+            variant="data"
+            tickets={tickets}
+            sorting={sorting}
+            onSortingChange={setSorting}
+          />
+          <TicketsPagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+          />
+        </>
       )}
     </div>
   );

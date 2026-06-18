@@ -22,6 +22,7 @@ export {
 } from "./createTicket.js";
 export {
   DEFAULT_TICKET_LIST_SORT,
+  DEFAULT_TICKET_PAGE_SIZE,
   listTicketsQuerySchema,
   sortingStateToTicketListSort,
   ticketListSortToOrderBy,

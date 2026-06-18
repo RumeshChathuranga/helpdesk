@@ -6,7 +6,11 @@ import {
   ticketListSortToSortingState,
 } from "core";
 import { useEffect, useMemo, useState } from "react";
-import { fetchTickets, ticketKeys } from "@/lib/tickets";
+import {
+  DEFAULT_TICKET_PAGE_SIZE,
+  fetchTickets,
+  ticketKeys,
+} from "@/lib/tickets";
 import type {
   TicketCategoryFilter,
   TicketStatusFilter,
@@ -23,6 +27,7 @@ export function useTickets() {
     useState<TicketCategoryFilter>("ALL");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
 
   const sort = sortingStateToTicketListSort(sorting);
 
@@ -34,14 +39,20 @@ export function useTickets() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [sort, statusFilter, categoryFilter, debouncedSearch]);
+
   const listParams = useMemo(
     () => ({
       sort,
+      page,
+      pageSize: DEFAULT_TICKET_PAGE_SIZE,
       ...(statusFilter !== "ALL" ? { status: statusFilter } : {}),
       ...(categoryFilter !== "ALL" ? { category: categoryFilter } : {}),
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
     }),
-    [sort, statusFilter, categoryFilter, debouncedSearch],
+    [sort, page, statusFilter, categoryFilter, debouncedSearch],
   );
 
   const query = useQuery({
@@ -50,8 +61,12 @@ export function useTickets() {
     placeholderData: keepPreviousData,
   });
 
+  const total = query.data?.total ?? 0;
+  const pageSize = query.data?.pageSize ?? DEFAULT_TICKET_PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   return {
-    tickets: query.data ?? [],
+    tickets: query.data?.tickets ?? [],
     sorting,
     setSorting,
     searchInput,
@@ -60,6 +75,11 @@ export function useTickets() {
     setStatusFilter,
     categoryFilter,
     setCategoryFilter,
+    page: query.data?.page ?? page,
+    pageSize,
+    total,
+    totalPages,
+    setPage,
     isPending: query.isPending,
     isFetching: query.isFetching,
     isError: query.isError,

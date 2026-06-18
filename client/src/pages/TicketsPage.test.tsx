@@ -45,9 +45,23 @@ const listTickets = [
   },
 ];
 
+function ticketListResponse(
+  tickets: typeof listTickets,
+  overrides: Partial<{ total: number; page: number; pageSize: number }> = {},
+) {
+  return {
+    data: {
+      tickets,
+      total: overrides.total ?? tickets.length,
+      page: overrides.page ?? 1,
+      pageSize: overrides.pageSize ?? 10,
+    },
+  };
+}
+
 beforeEach(() => {
   mockedGet.mockReset();
-  mockedGet.mockResolvedValue({ data: { tickets: listTickets } });
+  mockedGet.mockResolvedValue(ticketListResponse(listTickets));
 });
 
 describe("TicketsPage", () => {
@@ -84,7 +98,7 @@ describe("TicketsPage", () => {
   });
 
   it('shows "No tickets found" when the list is empty', async () => {
-    mockedGet.mockResolvedValue({ data: { tickets: [] } });
+    mockedGet.mockResolvedValue(ticketListResponse([], { total: 0 }));
 
     renderWithProviders(<TicketsPage />);
 
@@ -120,7 +134,7 @@ describe("TicketsPage", () => {
     });
 
     expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-      params: { sort: "createdAt_desc" },
+      params: { sort: "createdAt_desc", page: 1, pageSize: 10 },
       withCredentials: true,
     });
   });
@@ -138,7 +152,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sort: "subject_asc" },
+        params: { sort: "subject_asc", page: 1, pageSize: 10 },
         withCredentials: true,
       });
     });
@@ -157,7 +171,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sort: "createdAt_asc" },
+        params: { sort: "createdAt_asc", page: 1, pageSize: 10 },
         withCredentials: true,
       });
     });
@@ -178,7 +192,7 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sort: "createdAt_desc", status: "OPEN" },
+        params: { sort: "createdAt_desc", status: "OPEN", page: 1, pageSize: 10 },
         withCredentials: true,
       });
     });
@@ -199,7 +213,12 @@ describe("TicketsPage", () => {
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-        params: { sort: "createdAt_desc", category: "BILLING" },
+        params: {
+          sort: "createdAt_desc",
+          category: "BILLING",
+          page: 1,
+          pageSize: 10,
+        },
         withCredentials: true,
       });
     });
@@ -223,11 +242,42 @@ describe("TicketsPage", () => {
     await waitFor(
       () => {
         expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
-          params: { sort: "createdAt_desc", search: "password" },
+          params: {
+            sort: "createdAt_desc",
+            search: "password",
+            page: 1,
+            pageSize: 10,
+          },
           withCredentials: true,
         });
       },
       { timeout: 1000 },
     );
+  });
+
+  it("requests the next page when Next is clicked", async () => {
+    mockedGet.mockResolvedValue(
+      ticketListResponse(listTickets, { total: 40, page: 1, pageSize: 10 }),
+    );
+
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+    mockedGet.mockResolvedValue(
+      ticketListResponse(listTickets, { total: 40, page: 2, pageSize: 10 }),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sort: "createdAt_desc", page: 2, pageSize: 10 },
+        withCredentials: true,
+      });
+    });
   });
 });

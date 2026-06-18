@@ -18,6 +18,8 @@ export type TicketListSort = (typeof ticketListSortValues)[number];
 
 export const DEFAULT_TICKET_LIST_SORT: TicketListSort = "createdAt_desc";
 
+export const DEFAULT_TICKET_PAGE_SIZE = 10;
+
 export const listTicketsQuerySchema = z.object({
   status: ticketStatusSchema.optional(),
   category: ticketCategorySchema.optional(),
@@ -28,6 +30,14 @@ export const listTicketsQuerySchema = z.object({
     .max(200, "Search must be at most 200 characters")
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined)),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  pageSize: z.coerce
+    .number()
+    .int()
+    .min(1, "Page size must be at least 1")
+    .max(100, "Page size must be at most 100")
+    .optional()
+    .default(DEFAULT_TICKET_PAGE_SIZE),
 });
 
 export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;

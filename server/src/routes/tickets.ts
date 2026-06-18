@@ -1,6 +1,7 @@
 import {
   createTicketBodySchema,
   DEFAULT_TICKET_LIST_SORT,
+  DEFAULT_TICKET_PAGE_SIZE,
   listTicketsQuerySchema,
   ticketListSortToOrderBy,
   updateTicketBodySchema,
@@ -58,20 +59,26 @@ ticketsRouter.get("/", requireAgent, async (req, res) => {
     return;
   }
 
-  const { status, category, sort, search } = parsed.data;
+  const { status, category, sort, search, page, pageSize } = parsed.data;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
+  const where = {
+    ...(status ? { status } : {}),
+    ...(category ? { category } : {}),
+    ...(search ? buildTicketSearchWhere(search) : {}),
+  };
 
-  const tickets = await prisma.ticket.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...(category ? { category } : {}),
-      ...(search ? buildTicketSearchWhere(search) : {}),
-    },
-    orderBy,
-    select: ticketListSelect,
-  });
+  const [tickets, total] = await prisma.$transaction([
+    prisma.ticket.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: ticketListSelect,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
 
-  res.json({ tickets });
+  res.json({ tickets, total, page, pageSize });
 });
 
 ticketsRouter.get("/:id", requireAgent, async (req, res) => {
