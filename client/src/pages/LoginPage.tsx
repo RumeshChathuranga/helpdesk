@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { FIELD_LIMITS } from "core";
 import { z } from "zod";
 import { authClient } from "@/lib/auth-client";
 import {
@@ -23,8 +24,20 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const loginSchema = z.object({
-  email: z.string().email("Enter a valid email"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  email: z
+    .string()
+    .email("Enter a valid email")
+    .max(
+      FIELD_LIMITS.email,
+      `Email must be at most ${FIELD_LIMITS.email} characters`,
+    ),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters")
+    .max(
+      FIELD_LIMITS.password,
+      `Password must be at most ${FIELD_LIMITS.password} characters`,
+    ),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -83,6 +96,7 @@ export function LoginPage() {
                         <Input
                           type="text"
                           autoComplete="email"
+                          maxLength={FIELD_LIMITS.email}
                           placeholder="you@company.com"
                           {...field}
                         />
@@ -102,6 +116,7 @@ export function LoginPage() {
                         <Input
                           type="password"
                           autoComplete="current-password"
+                          maxLength={FIELD_LIMITS.password}
                           placeholder="••••••••"
                           {...field}
                         />

@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { createReplyBodySchema } from "core";
+import { createReplyBodySchema, FIELD_LIMITS } from "core";
 import { useForm, type Resolver } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -72,6 +72,7 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
                   <textarea
                     className={textareaClassName}
                     rows={5}
+                    maxLength={FIELD_LIMITS.body}
                     placeholder="Write your reply…"
                     {...field}
                   />

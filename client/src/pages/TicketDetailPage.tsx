@@ -1,3 +1,4 @@
+import { sanitizePlainText } from "core";
 import { isAxiosError } from "axios";
 import { ArrowLeft } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
@@ -33,14 +34,16 @@ function RequesterInfo({
   if (fromName && fromEmail) {
     return (
       <div>
-        <div className="font-medium text-gray-900">{fromName}</div>
+        <div className="font-medium text-gray-900">{sanitizePlainText(fromName)}</div>
         <div className="text-sm text-gray-500">{fromEmail}</div>
       </div>
     );
   }
 
   return (
-    <span className="text-gray-700">{fromName ?? fromEmail}</span>
+    <span className="text-gray-700">
+      {sanitizePlainText(fromName ?? fromEmail ?? "")}
+    </span>
   );
 }
 
@@ -62,7 +65,9 @@ function ReplyItem({ reply }: { reply: TicketReply }) {
           </span>
         )}
       </div>
-      <p className="whitespace-pre-wrap text-gray-800">{reply.body}</p>
+      <p className="whitespace-pre-wrap text-gray-800">
+        {sanitizePlainText(reply.body)}
+      </p>
     </article>
   );
 }
@@ -136,7 +141,9 @@ export function TicketDetailPage() {
         <div className="lg:grid lg:grid-cols-[1fr_18rem] lg:items-start lg:gap-8">
           <div className="space-y-6 min-w-0">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {sanitizePlainText(ticket.subject)}
+              </h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className={STATUS_BADGE[ticket.status]}>
                   {STATUS_LABEL[ticket.status]}
@@ -183,7 +190,7 @@ export function TicketDetailPage() {
                   AI summary
                 </h2>
                 <p className="whitespace-pre-wrap text-sm text-violet-900/90">
-                  {ticket.aiSummary}
+                  {sanitizePlainText(ticket.aiSummary)}
                 </p>
               </div>
             )}
@@ -192,7 +199,9 @@ export function TicketDetailPage() {
               <h2 className="mb-3 text-sm font-semibold text-gray-900">
                 Original message
               </h2>
-              <p className="whitespace-pre-wrap text-gray-800">{ticket.body}</p>
+              <p className="whitespace-pre-wrap text-gray-800">
+                {sanitizePlainText(ticket.body)}
+              </p>
             </div>
 
             <section>

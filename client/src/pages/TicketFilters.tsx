@@ -1,3 +1,4 @@
+import { FIELD_LIMITS } from "core";
 import type { TicketCategory, TicketStatus } from "core";
 import { ticketCategorySchema, ticketStatusSchema } from "core";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ export function TicketFilters({
         <Input
           id="ticket-search"
           type="search"
+          maxLength={FIELD_LIMITS.search}
           placeholder="Search subject, body, or requester"
           value={search}
           onChange={(event) => onSearchChange(event.target.value)}

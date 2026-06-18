@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FIELD_LIMITS } from "./fieldLimits.js";
 import { ticketCategorySchema, ticketStatusSchema } from "./ticketEnums.js";
 
 export const ticketListSortValues = [
@@ -27,7 +28,10 @@ export const listTicketsQuerySchema = z.object({
   search: z
     .string()
     .trim()
-    .max(200, "Search must be at most 200 characters")
+    .max(
+      FIELD_LIMITS.search,
+      `Search must be at most ${FIELD_LIMITS.search} characters`,
+    )
     .optional()
     .transform((value) => (value && value.length > 0 ? value : undefined)),
   page: z.coerce.number().int().min(1).optional().default(1),

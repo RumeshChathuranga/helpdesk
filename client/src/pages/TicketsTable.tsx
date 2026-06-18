@@ -6,6 +6,7 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table";
+import { sanitizePlainText } from "core";
 import type { TicketCategory, TicketStatus } from "core";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
@@ -71,7 +72,9 @@ function RequesterCell({ ticket }: { ticket: TicketListItem }) {
   if (ticket.fromName && ticket.fromEmail) {
     return (
       <div className="min-w-0 max-w-xs">
-        <div className="font-medium text-gray-900 truncate">{ticket.fromName}</div>
+        <div className="font-medium text-gray-900 truncate">
+          {sanitizePlainText(ticket.fromName)}
+        </div>
         <div className="text-xs text-gray-500 truncate">{ticket.fromEmail}</div>
       </div>
     );
@@ -79,7 +82,7 @@ function RequesterCell({ ticket }: { ticket: TicketListItem }) {
 
   return (
     <span className="text-gray-700 truncate block max-w-xs">
-      {ticket.fromName ?? ticket.fromEmail}
+      {sanitizePlainText(ticket.fromName ?? ticket.fromEmail ?? "")}
     </span>
   );
 }
@@ -109,7 +112,7 @@ const columns: ColumnDef<TicketListItem>[] = [
     header: "Subject",
     cell: ({ row }) => (
       <AppLink to={`/tickets/${row.original.id}`} truncate>
-        {row.original.subject}
+        {sanitizePlainText(row.original.subject)}
       </AppLink>
     ),
   },

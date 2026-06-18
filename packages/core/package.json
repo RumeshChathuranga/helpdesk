@@ -7,6 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "isomorphic-dompurify": "^3.17.0",
     "zod": "^4.3.6"
   }
 }

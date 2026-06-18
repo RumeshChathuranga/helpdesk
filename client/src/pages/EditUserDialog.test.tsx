@@ -79,7 +79,9 @@ describe("EditUserDialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     expect(
-      await within(dialog).findByText("Password must be at least 8 characters"),
+      await within(dialog).findByText(
+        "Password must be between 8 and 128 characters",
+      ),
     ).toBeInTheDocument();
     expect(mockedPatch).not.toHaveBeenCalled();
   });

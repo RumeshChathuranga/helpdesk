@@ -1,3 +1,4 @@
+import { FIELD_LIMITS } from "core";
 import type { Control } from "react-hook-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
@@ -46,7 +47,7 @@ export function UserAccountFormFields({
           <FormItem>
             <FormLabel>Name</FormLabel>
             <FormControl>
-              <Input autoComplete="name" {...field} />
+              <Input autoComplete="name" maxLength={FIELD_LIMITS.name} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -63,6 +64,7 @@ export function UserAccountFormFields({
                 type="text"
                 inputMode="email"
                 autoComplete="email"
+                maxLength={FIELD_LIMITS.email}
                 {...field}
               />
             </FormControl>
@@ -80,6 +82,7 @@ export function UserAccountFormFields({
               <Input
                 type="password"
                 autoComplete="new-password"
+                maxLength={FIELD_LIMITS.password}
                 placeholder={
                   passwordVariant === "edit"
                     ? "Leave blank to keep current password"
