@@ -37,3 +37,7 @@ export {
   updateTicketBodySchema,
   type UpdateTicketBody,
 } from "./updateTicket.js";
+export {
+  createReplyBodySchema,
+  type CreateReplyBody,
+} from "./createReply.js";

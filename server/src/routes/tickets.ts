@@ -1,4 +1,5 @@
 import {
+  createReplyBodySchema,
   createTicketBodySchema,
   DEFAULT_TICKET_LIST_SORT,
   DEFAULT_TICKET_PAGE_SIZE,
@@ -6,9 +7,9 @@ import {
   ticketListSortToOrderBy,
   updateTicketBodySchema,
 } from "core";
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import type { Prisma } from "@prisma/client";
-import type { ZodError } from "zod";
+import type { ZodError, ZodType } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
 
@@ -25,6 +26,41 @@ function parseRouteId(
   return id?.[0];
 }
 
+function parseBodyOrRespond<T>(
+  res: Response,
+  schema: ZodType<T>,
+  body: unknown,
+): T | null {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
+    return null;
+  }
+  return parsed.data;
+}
+
+async function requireTicketIdOrRespond(
+  res: Response,
+  rawId: string | string[] | undefined,
+): Promise<string | null> {
+  const id = parseRouteId(rawId);
+  if (!id) {
+    res.status(400).json({ error: "Invalid ticket id" });
+    return null;
+  }
+
+  const existing = await prisma.ticket.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+  if (!existing) {
+    res.status(404).json({ error: "Ticket not found" });
+    return null;
+  }
+
+  return id;
+}
+
 export const ticketsRouter: IRouter = Router();
 
 const ticketListSelect = {
@@ -39,6 +75,15 @@ const ticketListSelect = {
   createdById: true,
   createdAt: true,
   updatedAt: true,
+} as const;
+
+const replySelect = {
+  id: true,
+  body: true,
+  isAi: true,
+  sentEmail: true,
+  externalMessageId: true,
+  createdAt: true,
 } as const;
 
 function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
@@ -100,14 +145,7 @@ ticketsRouter.get("/:id", requireAgent, async (req, res) => {
       },
       replies: {
         orderBy: { createdAt: "asc" },
-        select: {
-          id: true,
-          body: true,
-          isAi: true,
-          sentEmail: true,
-          externalMessageId: true,
-          createdAt: true,
-        },
+        select: replySelect,
       },
     },
   });
@@ -118,6 +156,24 @@ ticketsRouter.get("/:id", requireAgent, async (req, res) => {
   }
 
   res.json({ ticket });
+});
+
+ticketsRouter.post("/:id/replies", requireAgent, async (req, res) => {
+  const input = parseBodyOrRespond(res, createReplyBodySchema, req.body);
+  if (!input) return;
+
+  const ticketId = await requireTicketIdOrRespond(res, req.params.id);
+  if (!ticketId) return;
+
+  const reply = await prisma.reply.create({
+    data: {
+      ticketId,
+      body: input.body,
+    },
+    select: replySelect,
+  });
+
+  res.status(201).json({ reply });
 });
 
 ticketsRouter.post("/", requireAgent, async (req, res) => {

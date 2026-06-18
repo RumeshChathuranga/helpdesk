@@ -12,12 +12,14 @@ vi.mock("axios", async (importOriginal) => {
     default: Object.assign(actual.default, {
       get: vi.fn(),
       patch: vi.fn(),
+      post: vi.fn(),
     }),
   };
 });
 
 const mockedGet = vi.mocked(axios.get);
 const mockedPatch = vi.mocked(axios.patch);
+const mockedPost = vi.mocked(axios.post);
 
 const agentsList = [
   { id: "agent-1", name: "Support Agent", email: "agent@example.com" },
@@ -79,6 +81,7 @@ function renderDetailPage(route = "/tickets/t1") {
 beforeEach(() => {
   mockedGet.mockReset();
   mockedPatch.mockReset();
+  mockedPost.mockReset();
   mockTicketDetailResponses();
 });
 
@@ -210,5 +213,83 @@ describe("TicketDetailPage", () => {
         { withCredentials: true },
       );
     });
+  });
+
+  it("shows empty replies state when there are no replies", async () => {
+    mockTicketDetailResponses({ ...detailTicket, replies: [] });
+
+    renderDetailPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Replies (0)")).toBeInTheDocument();
+    });
+    expect(screen.getByText("No replies yet.")).toBeInTheDocument();
+  });
+
+  it("renders the reply form", async () => {
+    renderDetailPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    });
+    expect(
+      screen.getByRole("button", { name: "Send reply" }),
+    ).toBeInTheDocument();
+  });
+
+  it("submits a reply via POST and refetches the ticket", async () => {
+    mockTicketDetailResponses({ ...detailTicket, replies: [] });
+
+    mockedPost.mockResolvedValue({
+      data: {
+        reply: {
+          id: "r2",
+          body: "Thanks for reaching out.",
+          isAi: false,
+          sentEmail: false,
+          externalMessageId: null,
+          createdAt: "2024-06-04T12:00:00.000Z",
+        },
+      },
+    });
+
+    renderDetailPage();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Message")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "Thanks for reaching out." },
+    });
+
+    mockTicketDetailResponses({
+      ...detailTicket,
+      replies: [
+        {
+          id: "r2",
+          body: "Thanks for reaching out.",
+          isAi: false,
+          sentEmail: false,
+          externalMessageId: null,
+          createdAt: "2024-06-04T12:00:00.000Z",
+        },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith(
+        "/api/tickets/t1/replies",
+        { body: "Thanks for reaching out." },
+        { withCredentials: true },
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Thanks for reaching out.")).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText("Message")).toHaveValue("");
   });
 });

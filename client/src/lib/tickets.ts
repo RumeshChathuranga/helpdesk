@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { UpdateTicketBody } from "core";
+import type { CreateReplyBody, UpdateTicketBody } from "core";
 import {
   DEFAULT_TICKET_PAGE_SIZE,
   type TicketListSort,
@@ -107,6 +107,27 @@ export async function fetchTicket(id: string): Promise<TicketDetail> {
   }
 
   return body.ticket;
+}
+
+export async function createReply(
+  ticketId: string,
+  data: CreateReplyBody,
+): Promise<TicketReply> {
+  const { data: body } = await axios.post<{ reply: TicketReply }>(
+    `/api/tickets/${ticketId}/replies`,
+    data,
+    { withCredentials: true },
+  );
+
+  if (
+    !body.reply ||
+    typeof body.reply.id !== "string" ||
+    typeof body.reply.body !== "string"
+  ) {
+    throw new Error("Invalid response from server");
+  }
+
+  return body.reply;
 }
 
 export async function fetchAgents(): Promise<AgentListItem[]> {

@@ -7,6 +7,7 @@ import { useTicket } from "@/hooks/useTicket";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import type { TicketReply } from "@/lib/tickets";
 import { EditTicketForm } from "./EditTicketForm";
+import { ReplyForm } from "./ReplyForm";
 import {
   CATEGORY_LABEL,
   STATUS_BADGE,
@@ -194,18 +195,22 @@ export function TicketDetailPage() {
               <p className="whitespace-pre-wrap text-gray-800">{ticket.body}</p>
             </div>
 
-            {ticket.replies.length > 0 && (
-              <section>
-                <h2 className="mb-3 text-sm font-semibold text-gray-900">
-                  Replies ({ticket.replies.length})
-                </h2>
+            <section>
+              <h2 className="mb-3 text-sm font-semibold text-gray-900">
+                Replies ({ticket.replies.length})
+              </h2>
+              {ticket.replies.length === 0 ? (
+                <p className="text-sm text-gray-500">No replies yet.</p>
+              ) : (
                 <div className="space-y-3">
                   {ticket.replies.map((reply) => (
                     <ReplyItem key={reply.id} reply={reply} />
                   ))}
                 </div>
-              </section>
-            )}
+              )}
+            </section>
+
+            <ReplyForm ticketId={ticket.id} />
           </div>
 
           <aside className="mt-6 lg:mt-0 lg:sticky lg:top-6">
