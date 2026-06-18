@@ -45,6 +45,20 @@ export async function createTicketViaPage(
   return json.ticket;
 }
 
+/** Updates a ticket through the same /api proxy the browser uses. */
+export async function updateTicketViaPage(
+  page: Page,
+  id: string,
+  data: { status?: string; category?: string },
+) {
+  const response = await page.request.patch(`/api/tickets/${id}`, { data });
+  if (!response.ok()) {
+    throw new Error(
+      `Update ticket failed: ${response.status()} ${await response.text()}`,
+    );
+  }
+}
+
 /** Deletes a ticket through the same /api proxy the browser uses. */
 export async function deleteTicketViaPage(page: Page, id: string) {
   const response = await page.request.delete(`/api/tickets/${id}`);

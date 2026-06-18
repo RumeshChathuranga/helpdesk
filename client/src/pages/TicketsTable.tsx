@@ -42,14 +42,14 @@ const STATUS_BADGE: Record<TicketStatus, string> = {
     "inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800",
 };
 
-const STATUS_LABEL: Record<TicketStatus, string> = {
+export const STATUS_LABEL: Record<TicketStatus, string> = {
   OPEN: "Open",
   IN_PROGRESS: "In progress",
   RESOLVED: "Resolved",
   CLOSED: "Closed",
 };
 
-const CATEGORY_LABEL: Record<TicketCategory, string> = {
+export const CATEGORY_LABEL: Record<TicketCategory, string> = {
   BILLING: "Billing",
   TECHNICAL: "Technical",
   GENERAL: "General",

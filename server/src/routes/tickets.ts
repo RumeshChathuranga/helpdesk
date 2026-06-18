@@ -6,6 +6,7 @@ import {
   updateTicketBodySchema,
 } from "core";
 import { Router, type IRouter } from "express";
+import type { Prisma } from "@prisma/client";
 import type { ZodError } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
@@ -39,6 +40,17 @@ const ticketListSelect = {
   updatedAt: true,
 } as const;
 
+function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
+  return {
+    OR: [
+      { subject: { contains: search, mode: "insensitive" } },
+      { body: { contains: search, mode: "insensitive" } },
+      { fromEmail: { contains: search, mode: "insensitive" } },
+      { fromName: { contains: search, mode: "insensitive" } },
+    ],
+  };
+}
+
 ticketsRouter.get("/", requireAgent, async (req, res) => {
   const parsed = listTicketsQuerySchema.safeParse(req.query);
   if (!parsed.success) {
@@ -46,13 +58,14 @@ ticketsRouter.get("/", requireAgent, async (req, res) => {
     return;
   }
 
-  const { status, category, sort } = parsed.data;
+  const { status, category, sort, search } = parsed.data;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
   const tickets = await prisma.ticket.findMany({
     where: {
       ...(status ? { status } : {}),
       ...(category ? { category } : {}),
+      ...(search ? buildTicketSearchWhere(search) : {}),
     },
     orderBy,
     select: ticketListSelect,

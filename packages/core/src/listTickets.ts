@@ -22,6 +22,12 @@ export const listTicketsQuerySchema = z.object({
   status: ticketStatusSchema.optional(),
   category: ticketCategorySchema.optional(),
   sort: z.enum(ticketListSortValues).optional(),
+  search: z
+    .string()
+    .trim()
+    .max(200, "Search must be at most 200 characters")
+    .optional()
+    .transform((value) => (value && value.length > 0 ? value : undefined)),
 });
 
 export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;

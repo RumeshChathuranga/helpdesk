@@ -5,6 +5,7 @@ import {
   deleteTicketsViaPage,
   openTicketsPage,
   uniqueTicketSubject,
+  updateTicketViaPage,
   waitForTicketsTable,
 } from "./helpers/tickets";
 
@@ -132,5 +133,83 @@ test.describe.serial("Ticket list — table", () => {
     const newerY = (await newerRow.boundingBox())!.y;
     const olderY = (await olderRow.boundingBox())!.y;
     expect(newerY).toBeLessThan(olderY);
+  });
+
+  test("filters tickets by status and category", async ({ page }) => {
+    await loginAsAgent(page);
+
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const openSubject = uniqueTicketSubject(`Filter open ${runId}`);
+    const resolvedSubject = uniqueTicketSubject(`Filter resolved ${runId}`);
+
+    const openTicket = await createTicketViaPage(page, {
+      subject: openSubject,
+      body: "Open filter ticket",
+      category: "GENERAL",
+    });
+    createdTicketIds.push(openTicket.id);
+
+    const resolvedTicket = await createTicketViaPage(page, {
+      subject: resolvedSubject,
+      body: "Resolved filter ticket",
+      category: "BILLING",
+    });
+    createdTicketIds.push(resolvedTicket.id);
+
+    await updateTicketViaPage(page, resolvedTicket.id, { status: "RESOLVED" });
+
+    await page.goto("/tickets");
+    await waitForTicketsTable(page);
+
+    await page.getByLabel("Status").selectOption("Open");
+    await waitForTicketsTable(page);
+
+    await expect(page.getByRole("cell", { name: openSubject })).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: resolvedSubject }),
+    ).not.toBeVisible();
+
+    await page.getByLabel("Status").selectOption("All statuses");
+    await page.getByLabel("Category").selectOption("Billing");
+    await waitForTicketsTable(page);
+
+    await expect(
+      page.getByRole("cell", { name: resolvedSubject }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("cell", { name: openSubject }),
+    ).not.toBeVisible();
+  });
+
+  test("searches tickets by subject", async ({ page }) => {
+    await loginAsAgent(page);
+
+    const searchToken = `search-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const matchingSubject = uniqueTicketSubject(`Match ${searchToken}`);
+    const otherSubject = uniqueTicketSubject(`Other ${searchToken}`);
+
+    const matchingTicket = await createTicketViaPage(page, {
+      subject: matchingSubject,
+      body: "Find me by subject",
+    });
+    createdTicketIds.push(matchingTicket.id);
+
+    const otherTicket = await createTicketViaPage(page, {
+      subject: otherSubject,
+      body: "Different ticket body",
+    });
+    createdTicketIds.push(otherTicket.id);
+
+    await page.goto("/tickets");
+    await waitForTicketsTable(page);
+
+    await page.getByLabel("Search").fill(`Match ${searchToken}`);
+
+    await expect(
+      page.getByRole("cell", { name: matchingSubject }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole("cell", { name: otherSubject }),
+    ).not.toBeVisible();
   });
 });

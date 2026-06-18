@@ -75,8 +75,12 @@ describe("TicketsPage", () => {
     expect(screen.getByText("jane.customer@gmail.com")).toBeInTheDocument();
     expect(screen.getByText("Invoice question")).toBeInTheDocument();
     expect(screen.getByText("billing@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Open")).toBeInTheDocument();
-    expect(screen.getByText("In progress")).toBeInTheDocument();
+    expect(screen.getByLabelText("Status")).toBeInTheDocument();
+    expect(screen.getByLabelText("Category")).toBeInTheDocument();
+    expect(screen.getByLabelText("Search")).toBeInTheDocument();
+
+    const invoiceRow = screen.getByRole("row", { name: /Invoice question/i });
+    expect(within(invoiceRow).getByText("In progress")).toBeInTheDocument();
   });
 
   it('shows "No tickets found" when the list is empty', async () => {
@@ -157,5 +161,73 @@ describe("TicketsPage", () => {
         withCredentials: true,
       });
     });
+  });
+
+  it("requests status filter when the Status dropdown changes", async () => {
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.change(screen.getByLabelText("Status"), {
+      target: { value: "OPEN" },
+    });
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sort: "createdAt_desc", status: "OPEN" },
+        withCredentials: true,
+      });
+    });
+  });
+
+  it("requests category filter when the Category dropdown changes", async () => {
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "BILLING" },
+    });
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        params: { sort: "createdAt_desc", category: "BILLING" },
+        withCredentials: true,
+      });
+    });
+  });
+
+  it("requests search term after the input is debounced", async () => {
+    renderWithProviders(<TicketsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.change(screen.getByLabelText("Search"), {
+      target: { value: "password" },
+    });
+
+    expect(mockedGet).not.toHaveBeenCalled();
+
+    await waitFor(
+      () => {
+        expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+          params: { sort: "createdAt_desc", search: "password" },
+          withCredentials: true,
+        });
+      },
+      { timeout: 1000 },
+    );
   });
 });
