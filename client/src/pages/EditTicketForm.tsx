@@ -24,7 +24,7 @@ import { FormRootErrorAlert } from "./UserAccountFormFields";
 import { CATEGORY_LABEL, STATUS_LABEL } from "./TicketsTable";
 
 const selectClassName = cn(
-  "flex h-10 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 py-2 text-sm",
+  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
   "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
 );
 
@@ -88,7 +88,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
         >
           <FormRootErrorAlert message={form.formState.errors.root?.message} />
 
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-4">
             <FormField
               control={form.control}
               name="status"
@@ -96,10 +96,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
                 <FormItem>
                   <FormLabel>Status</FormLabel>
                   <FormControl>
-                    <select
-                      className={selectClassName}
-                      {...field}
-                    >
+                    <select className={selectClassName} {...field}>
                       {ticketStatusSchema.options.map((value: TicketStatus) => (
                         <option key={value} value={value}>
                           {STATUS_LABEL[value]}
@@ -118,10 +115,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
                 <FormItem>
                   <FormLabel>Category</FormLabel>
                   <FormControl>
-                    <select
-                      className={selectClassName}
-                      {...field}
-                    >
+                    <select className={selectClassName} {...field}>
                       {ticketCategorySchema.options.map(
                         (value: TicketCategory) => (
                           <option key={value} value={value}>
@@ -142,10 +136,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
                 <FormItem>
                   <FormLabel>Assignee</FormLabel>
                   <FormControl>
-                    <select
-                      className={selectClassName}
-                      {...field}
-                    >
+                    <select className={selectClassName} {...field}>
                       <option value="">Unassigned</option>
                       {agents.map((agent: AgentListItem) => (
                         <option key={agent.id} value={agent.id}>
@@ -158,7 +149,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
               )}
             />
 
-            <Button type="submit" disabled={updateMutation.isPending}>
+            <Button type="submit" className="w-full" disabled={updateMutation.isPending}>
               {updateMutation.isPending ? "Saving…" : "Save changes"}
             </Button>
           </div>
