@@ -1,4 +1,6 @@
 import { createApp } from "./app.js";
+import { startBoss } from "./lib/boss.js";
+import { registerClassifyTicketWorker } from "./jobs/classifyTicket.js";
 
 if (!process.env.BETTER_AUTH_SECRET) {
   console.error("FATAL: BETTER_AUTH_SECRET env var is not set");
@@ -13,6 +15,10 @@ if (!process.env.DATABASE_URL) {
 const PORT = Number(process.env.PORT) || 8080;
 
 const app = createApp();
+
+// Start pg-boss and register all job workers before accepting HTTP traffic
+await startBoss();
+await registerClassifyTicketWorker();
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

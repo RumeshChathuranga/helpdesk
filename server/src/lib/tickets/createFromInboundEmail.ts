@@ -2,7 +2,7 @@ import type { InboundEmail } from "core";
 import { inboundEmailSchema } from "core";
 import type { ZodError } from "zod";
 import { prisma } from "../prisma.js";
-import { classifyTicket } from "./classifyTicket.js";
+import { enqueueClassifyTicket } from "../../jobs/classifyTicket.js";
 
 export type InboundEmailResult = {
   ticketId: string;
@@ -62,8 +62,8 @@ export async function createFromInboundEmail(
     select: { id: true },
   });
 
-  // Non-blocking: classify in the background, do not await
-  void classifyTicket(ticket.id, subject, body);
+  // Enqueue a persistent pg-boss job — survives process restarts
+  void enqueueClassifyTicket({ ticketId: ticket.id, subject, body });
 
   return { ticketId: ticket.id, created: "ticket" };
 }
