@@ -51,12 +51,22 @@ export type TicketsListResult = {
   pageSize: number;
 };
 
+export type DashboardStats = {
+  totalTickets: number;
+  openTickets: number;
+  resolvedTickets: number;
+  aiResolvedCount: number;
+  aiResolvedPct: number;
+  chartData: { date: string; count: number }[];
+};
+
 export const ticketKeys = {
   all: ["tickets"] as const,
   list: (params: TicketsListParams) =>
     [...ticketKeys.all, "list", params] as const,
   detail: (id: string) => [...ticketKeys.all, "detail", id] as const,
   agents: [...["tickets"], "agents"] as const,
+  stats: [...["tickets"], "stats"] as const,
 };
 
 type TicketsResponse = TicketsListResult;
@@ -191,3 +201,10 @@ export async function updateTicket(
 }
 
 export { DEFAULT_TICKET_PAGE_SIZE };
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  const { data } = await axios.get<DashboardStats>("/api/tickets/stats", {
+    withCredentials: true,
+  });
+  return data;
+}
