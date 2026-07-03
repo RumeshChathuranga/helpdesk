@@ -11,14 +11,19 @@ import type { AddressInfo } from "node:net";
 import { createApp } from "../../app.js";
 import { prisma } from "../../lib/prisma.js";
 
+import { startBoss, boss } from "../../lib/boss.js";
+
 const WEBHOOK_SECRET = "test-inbound-webhook-secret";
 
 let server: Server;
 let baseUrl: string;
 const createdTicketIds: string[] = [];
 
-beforeAll(() => {
+beforeAll(async () => {
   process.env.INBOUND_WEBHOOK_SECRET = WEBHOOK_SECRET;
+
+  await startBoss();
+  await boss.createQueue("process-ticket");
 
   const app = createApp();
   server = app.listen(0);
@@ -27,19 +32,21 @@ beforeAll(() => {
 });
 
 afterEach(async () => {
-  if (createdTicketIds.length > 0) {
+  const validIds = createdTicketIds.filter(Boolean);
+  if (validIds.length > 0) {
     await prisma.reply.deleteMany({
-      where: { ticketId: { in: [...createdTicketIds] } },
+      where: { ticketId: { in: validIds } },
     });
     await prisma.ticket.deleteMany({
-      where: { id: { in: [...createdTicketIds] } },
+      where: { id: { in: validIds } },
     });
-    createdTicketIds.length = 0;
   }
+  createdTicketIds.length = 0;
 });
 
-afterAll(() => {
+afterAll(async () => {
   server.close();
+  await boss.stop();
 });
 
 async function postInboundEmail(
@@ -96,7 +103,7 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(ticket?.subject).toBe("Refund question");
     expect(ticket?.body).toBe("I need a refund for course X");
     expect(ticket?.externalMessageId).toBe(messageId);
-    expect(ticket?.status).toBe("OPEN");
+    expect(ticket?.status).toBe("NEW");
     expect(ticket?.category).toBe("OTHER");
   });
 

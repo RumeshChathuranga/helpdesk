@@ -49,6 +49,8 @@ export async function createFromInboundEmail(
     }
   }
 
+  const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+
   const ticket = await prisma.ticket.create({
     data: {
       subject,
@@ -58,6 +60,7 @@ export async function createFromInboundEmail(
       externalMessageId: messageId,
       status: "NEW",
       category: "OTHER",
+      assignedToId: aiAgent?.id,
     },
     select: { id: true },
   });

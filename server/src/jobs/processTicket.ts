@@ -88,10 +88,21 @@ export async function registerProcessTicketWorker(): Promise<void> {
         throw new Error("GITHUB_MODELS_TOKEN not set");
       }
 
+      // Find AI agent
+      const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+
+      const currentTicket = await prisma.ticket.findUnique({
+        where: { id: ticketId },
+        select: { assignedToId: true },
+      });
+
       // Mark as PROCESSING so agents don't see it while AI works on it
       await prisma.ticket.update({
         where: { id: ticketId },
-        data: { status: "PROCESSING" },
+        data: {
+          status: "PROCESSING",
+          assignedToId: currentTicket?.assignedToId ?? aiAgent?.id,
+        },
       });
 
       console.info(`[process-ticket] Ticket ${ticketId} → PROCESSING`);
@@ -222,9 +233,19 @@ Do not include any explanation outside the JSON.`,
         );
       } else {
         // Can't answer — pass to human agents
+        const currentTicket = await prisma.ticket.findUnique({
+          where: { id: ticketId },
+          select: { assignedToId: true },
+        });
+
+        const shouldUnassign = aiAgent && currentTicket?.assignedToId === aiAgent.id;
+
         await prisma.ticket.update({
           where: { id: ticketId },
-          data: { status: "OPEN" },
+          data: {
+            status: "OPEN",
+            ...(shouldUnassign ? { assignedToId: null } : {}),
+          },
         });
 
         console.info(

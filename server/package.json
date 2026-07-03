@@ -14,6 +14,7 @@
     "db:push": "bunx prisma db push",
     "db:studio": "bunx prisma studio",
     "db:seed": "bun prisma/seed.ts",
+    "db:seed:ai": "bun prisma/seed-ai.ts",
     "test:unit": "bun test src/routes",
     "test:server": "bun --env-file .env.test --env INBOUND_WEBHOOK_SECRET=test-inbound-webhook-secret src/index.ts"
   },

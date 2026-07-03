@@ -14,6 +14,7 @@
     "lint": "bun run --filter '*' lint",
     "db:studio": "bun run --filter server db:studio",
     "db:seed": "bun run --filter server db:seed",
+    "db:seed:ai": "bun run --filter server db:seed:ai",
     "db:migrate": "bun run --filter server db:migrate",
     "db:push": "bun run --filter server db:push",
     "test:client": "bun run --filter client test",

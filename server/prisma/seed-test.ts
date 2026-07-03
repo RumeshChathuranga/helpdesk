@@ -83,7 +83,32 @@ async function seedSampleTickets() {
   console.log("[seed-test] Ensured 2 sample tickets");
 }
 
+async function ensureAiAgent() {
+  const email = "ai@example.com";
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    await prisma.user.update({
+      where: { email },
+      data: { role: Role.AGENT, name: "AI", deletedAt: null },
+    });
+    console.log(`[seed-test] AI Agent ${email} already exists — updated name and role`);
+    return existing;
+  }
+
+  const ai = await prisma.user.create({
+    data: {
+      email,
+      name: "AI",
+      emailVerified: true,
+      role: Role.AGENT,
+    },
+  });
+  console.log(`[seed-test] AI Agent created: ${email}`);
+  return ai;
+}
+
 await seedSampleTickets();
+await ensureAiAgent();
 
 await prisma.$disconnect();
 console.log("[seed-test] Done.");
