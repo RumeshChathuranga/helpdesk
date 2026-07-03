@@ -30,20 +30,20 @@ function RequesterInfo({
   fromEmail: string | null;
 }) {
   if (!fromName && !fromEmail) {
-    return <span className="text-gray-700">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
 
   if (fromName && fromEmail) {
     return (
-      <div>
-        <div className="font-medium text-gray-900">{sanitizePlainText(fromName)}</div>
-        <div className="text-sm text-gray-500">{fromEmail}</div>
+      <div className="font-mono text-xs">
+        <div className="font-semibold text-foreground">{sanitizePlainText(fromName)}</div>
+        <div className="text-[10px] text-muted-foreground mt-0.5">{fromEmail}</div>
       </div>
     );
   }
 
   return (
-    <span className="text-gray-700">
+    <span className="text-foreground font-mono text-xs">
       {sanitizePlainText(fromName ?? fromEmail ?? "")}
     </span>
   );
@@ -51,23 +51,23 @@ function RequesterInfo({
 
 function ReplyItem({ reply }: { reply: TicketReply }) {
   return (
-    <article className="rounded-lg border border-gray-200 bg-gray-50/50 p-4">
-      <div className="mb-2 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+    <article className="rounded-xl border border-border bg-card/45 p-5 shadow-sm hover:border-border/80 transition-all duration-200">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-mono">
         <time dateTime={reply.createdAt}>
           {dateFormatter.format(new Date(reply.createdAt))}
         </time>
         {reply.isAi && (
-          <span className="inline-flex rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-800">
-            AI
+          <span className="inline-flex rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400 border border-violet-500/20">
+            AI Agent
           </span>
         )}
         {reply.sentEmail && (
-          <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
-            Sent via email
+          <span className="inline-flex rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
+            Sent Email
           </span>
         )}
       </div>
-      <p className="whitespace-pre-wrap text-gray-800">
+      <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
         {sanitizePlainText(reply.body)}
       </p>
     </article>
@@ -133,72 +133,80 @@ export function TicketDetailPage() {
 
       {isNotFound && (
         <div className="space-y-4">
-          <h1 className="text-2xl font-bold text-gray-900">Ticket not found</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Ticket not found</h1>
+          <p className="text-muted-foreground text-sm">
             This ticket may have been deleted or the link is invalid.
           </p>
         </div>
       )}
 
       {isError && !isNotFound && (
-        <Alert variant="destructive">
-          <AlertTitle>Could not load ticket</AlertTitle>
-          <AlertDescription>{getErrorMessage(error)}</AlertDescription>
+        <Alert variant="destructive" className="border-red-500/20 bg-red-500/5">
+          <AlertTitle className="text-red-400 font-mono font-semibold text-sm">Could not load ticket</AlertTitle>
+          <AlertDescription className="text-red-400/90 text-xs">{getErrorMessage(error)}</AlertDescription>
         </Alert>
       )}
 
       {isSuccess && ticket && (
-        <div className="lg:grid lg:grid-cols-[1fr_18rem] lg:items-start lg:gap-8">
+        <div className="lg:grid lg:grid-cols-[1fr_20rem] lg:items-start lg:gap-8">
           <div className="space-y-6 min-w-0">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+            <div className="bg-card/30 border border-border/80 rounded-2xl p-6">
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">
                 {sanitizePlainText(ticket.subject)}
               </h1>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-4 flex flex-wrap items-center gap-2.5">
                 <span className={STATUS_BADGE[ticket.status]}>
                   {STATUS_LABEL[ticket.status]}
                 </span>
-                <span className="inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800">
+                <span className="inline-flex rounded-full bg-secondary text-muted-foreground px-2.5 py-0.5 text-xs font-mono font-semibold border border-border">
                   {CATEGORY_LABEL[ticket.category]}
                 </span>
               </div>
             </div>
 
-            <dl className="grid gap-4 sm:grid-cols-2 text-sm">
-              <div>
-                <dt className="font-medium text-gray-500">Requester</dt>
-                <dd className="mt-1">
-                  <RequesterInfo
-                    fromName={ticket.fromName}
-                    fromEmail={ticket.fromEmail}
-                  />
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Assignee</dt>
-                <dd className="mt-1 text-gray-900">
-                  {ticket.assignedTo?.name ?? "Unassigned"}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Created</dt>
-                <dd className="mt-1 text-gray-900 tabular-nums">
-                  {dateFormatter.format(new Date(ticket.createdAt))}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-500">Updated</dt>
-                <dd className="mt-1 text-gray-900 tabular-nums">
-                  {dateFormatter.format(new Date(ticket.updatedAt))}
-                </dd>
-              </div>
-            </dl>
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-muted-foreground">
+                Ticket Information
+              </h2>
+              <dl className="grid gap-6 sm:grid-cols-2 text-sm">
+                <div>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Requester</dt>
+                  <dd className="mt-1.5">
+                    <RequesterInfo
+                      fromName={ticket.fromName}
+                      fromEmail={ticket.fromEmail}
+                    />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Assignee</dt>
+                  <dd className="mt-1.5 text-foreground font-medium">
+                    {ticket.assignedTo?.name ?? (
+                      <span className="text-muted-foreground italic">Unassigned</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Created</dt>
+                  <dd className="mt-1.5 text-muted-foreground font-mono text-xs">
+                    {dateFormatter.format(new Date(ticket.createdAt))}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Updated</dt>
+                  <dd className="mt-1.5 text-muted-foreground font-mono text-xs">
+                    {dateFormatter.format(new Date(ticket.updatedAt))}
+                  </dd>
+                </div>
+              </dl>
+            </div>
 
             {/* AI Summary panel — shows generated or persisted summary */}
-            <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-violet-900">
-                  <Sparkles className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 shadow-md relative overflow-hidden">
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h2 className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase font-mono text-primary">
+                  <Sparkles className="h-4.5 w-4.5 text-primary animate-pulse" aria-hidden="true" />
                   AI Summary
                 </h2>
                 <Button
@@ -208,7 +216,7 @@ export function TicketDetailPage() {
                   id="summarize-ticket-btn"
                   disabled={isSummarizing}
                   onClick={() => summarize()}
-                  className="gap-1.5 border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-800 disabled:opacity-50"
+                  className="gap-1.5 border-primary/20 text-primary hover:bg-primary/10 hover:border-primary/30 hover:text-primary transition-all duration-200 rounded-xl"
                   title="Generate or regenerate an AI summary of this ticket and conversation"
                 >
                   {isSummarizing ? (
@@ -251,48 +259,48 @@ export function TicketDetailPage() {
               </div>
 
               {hasSummaryError && (
-                <p className="text-sm text-red-600">
-                  <span className="font-medium">Error:</span>{" "}
+                <p className="text-xs text-red-400 font-mono">
+                  <span className="font-semibold text-red-500">Error:</span>{" "}
                   {getErrorMessage(summaryError)}
                 </p>
               )}
 
               {isSummarizing && !summary && (
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-5/6" />
-                  <Skeleton className="h-4 w-4/6" />
+                  <Skeleton className="h-4 w-full bg-primary/10" />
+                  <Skeleton className="h-4 w-5/6 bg-primary/10" />
+                  <Skeleton className="h-4 w-4/6 bg-primary/10" />
                 </div>
               )}
 
               {hasSummary && summary && (
-                <p className="whitespace-pre-wrap text-sm text-violet-900/90 leading-relaxed">
+                <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
                   {sanitizePlainText(summary)}
                 </p>
               )}
 
               {!hasSummary && !isSummarizing && !hasSummaryError && (
-                <p className="text-sm text-violet-700/60 italic">
+                <p className="text-xs text-muted-foreground/60 italic font-mono">
                   Click &ldquo;Summarize&rdquo; to generate an AI summary of this ticket and its conversation.
                 </p>
               )}
             </div>
 
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-              <h2 className="mb-3 text-sm font-semibold text-gray-900">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
+              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">
                 Original message
               </h2>
-              <p className="whitespace-pre-wrap text-gray-800">
+              <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
                 {sanitizePlainText(ticket.body)}
               </p>
             </div>
 
-            <section>
-              <h2 className="mb-3 text-sm font-semibold text-gray-900">
+            <section className="space-y-4">
+              <h2 className="text-xs font-bold tracking-wider uppercase font-mono text-foreground">
                 Replies ({ticket.replies.length})
               </h2>
               {ticket.replies.length === 0 ? (
-                <p className="text-sm text-gray-500">No replies yet.</p>
+                <p className="text-xs text-muted-foreground italic font-mono bg-card/20 p-4 border border-border/50 rounded-xl text-center">No replies yet.</p>
               ) : (
                 <div className="space-y-3">
                   {ticket.replies.map((reply) => (

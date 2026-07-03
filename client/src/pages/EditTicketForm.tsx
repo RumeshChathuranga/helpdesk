@@ -25,8 +25,8 @@ import { FormRootErrorAlert } from "./UserAccountFormFields";
 import { CATEGORY_LABEL, STATUS_LABEL } from "./TicketsTable";
 
 const selectClassName = cn(
-  "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-  "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  "flex h-10 w-full rounded-xl border border-input bg-card hover:bg-secondary/50 text-foreground px-3 py-2 text-sm transition-all duration-200 cursor-pointer",
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 );
 
 const editTicketFormSchema = z.object({
@@ -77,8 +77,8 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-gray-900">
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
+      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">
         Edit ticket
       </h2>
       <Form {...form}>

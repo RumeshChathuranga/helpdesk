@@ -23,10 +23,10 @@ const replyFormSchema = createReplyBodySchema;
 type ReplyFormValues = z.infer<typeof replyFormSchema>;
 
 const textareaClassName = cn(
-  "flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-  "ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none",
-  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-  "disabled:cursor-not-allowed disabled:opacity-50",
+  "flex min-h-[120px] w-full rounded-xl border border-input bg-background px-4 py-3 text-sm",
+  "placeholder:text-muted-foreground focus-visible:outline-none",
+  "focus-visible:ring-1 focus-visible:ring-ring",
+  "disabled:cursor-not-allowed disabled:opacity-50 transition-all",
 );
 
 type ReplyFormProps = {
@@ -66,8 +66,8 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
   const bodyValue = form.watch("body");
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-gray-900">Add reply</h2>
+    <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
+      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">Add reply</h2>
       <Form {...form}>
         <form
           noValidate
@@ -77,8 +77,8 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
           <FormRootErrorAlert message={form.formState.errors.root?.message} />
 
           {polishMutation.isError && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              <span className="font-medium">Polish failed:</span>{" "}
+            <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400 font-mono">
+              <span className="font-semibold text-red-500">Polish failed:</span>{" "}
               {getErrorMessage(polishMutation.error)}
             </div>
           )}
@@ -89,19 +89,20 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Message</FormLabel>
-                <FormControl>
                   <div className="relative">
-                    <textarea
-                      className={cn(textareaClassName, isPolishing && "opacity-60")}
-                      rows={5}
-                      maxLength={FIELD_LIMITS.body}
-                      placeholder="Write your reply…"
-                      disabled={isPolishing}
-                      {...field}
-                    />
+                    <FormControl>
+                      <textarea
+                        className={cn(textareaClassName, isPolishing && "opacity-60")}
+                        rows={5}
+                        maxLength={FIELD_LIMITS.body}
+                        placeholder="Write your reply…"
+                        disabled={isPolishing}
+                        {...field}
+                      />
+                    </FormControl>
                     {isPolishing && (
-                      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-white/60">
-                        <div className="flex items-center gap-2 text-sm text-violet-700">
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm">
+                        <div className="flex items-center gap-2 text-sm text-primary font-mono font-bold animate-pulse">
                           <svg
                             className="h-4 w-4 animate-spin"
                             xmlns="http://www.w3.org/2000/svg"
@@ -128,7 +129,6 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
                       </div>
                     )}
                   </div>
-                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
@@ -141,7 +141,7 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
               size="sm"
               disabled={isPolishing || !bodyValue.trim()}
               onClick={handlePolish}
-              className="gap-1.5 text-violet-700 border-violet-200 hover:bg-violet-50 hover:text-violet-800 hover:border-violet-300 disabled:opacity-50"
+              className="gap-1.5 text-primary border-primary/20 hover:bg-primary/10 hover:border-primary/30 disabled:opacity-50 rounded-xl"
               id="polish-reply-btn"
               title="Use AI to improve your reply's grammar, clarity, and professionalism"
             >
