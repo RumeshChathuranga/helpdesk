@@ -1,9 +1,11 @@
 import { sanitizePlainText } from "core";
 import { isAxiosError } from "axios";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RotateCcw, Sparkles } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSummarizeTicket } from "@/hooks/useSummarizeTicket";
 import { useTicket } from "@/hooks/useTicket";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import type { TicketReply } from "@/lib/tickets";
@@ -101,7 +103,15 @@ function TicketDetailSkeleton() {
 }
 
 export function TicketDetailPage() {
-  const { ticket, isPending, isError, error, isSuccess } = useTicket();
+  const { ticket, ticketId, isPending, isError, error, isSuccess } = useTicket();
+  const {
+    data: summary,
+    isFetching: isSummarizing,
+    isSuccess: hasSummary,
+    isError: hasSummaryError,
+    error: summaryError,
+    refetch: summarize,
+  } = useSummarizeTicket(ticketId);
 
   const isNotFound =
     isError && isAxiosError(error) && error.response?.status === 404;
@@ -184,16 +194,89 @@ export function TicketDetailPage() {
               </div>
             </dl>
 
-            {ticket.aiSummary && (
-              <div className="rounded-xl border border-violet-200 bg-violet-50/50 p-4">
-                <h2 className="mb-2 text-sm font-semibold text-violet-900">
-                  AI summary
+            {/* AI Summary panel — shows generated or persisted summary */}
+            <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="flex items-center gap-1.5 text-sm font-semibold text-violet-900">
+                  <Sparkles className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+                  AI Summary
                 </h2>
-                <p className="whitespace-pre-wrap text-sm text-violet-900/90">
-                  {sanitizePlainText(ticket.aiSummary)}
-                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  id="summarize-ticket-btn"
+                  disabled={isSummarizing}
+                  onClick={() => summarize()}
+                  className="gap-1.5 border-violet-200 text-violet-700 hover:bg-violet-50 hover:border-violet-300 hover:text-violet-800 disabled:opacity-50"
+                  title="Generate or regenerate an AI summary of this ticket and conversation"
+                >
+                  {isSummarizing ? (
+                    <>
+                      <svg
+                        className="h-3.5 w-3.5 animate-spin"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        aria-hidden="true"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                      Summarizing…
+                    </>
+                  ) : hasSummary ? (
+                    <>
+                      <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                      Regenerate
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                      Summarize
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
+
+              {hasSummaryError && (
+                <p className="text-sm text-red-600">
+                  <span className="font-medium">Error:</span>{" "}
+                  {getErrorMessage(summaryError)}
+                </p>
+              )}
+
+              {isSummarizing && !summary && (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-5/6" />
+                  <Skeleton className="h-4 w-4/6" />
+                </div>
+              )}
+
+              {hasSummary && summary && (
+                <p className="whitespace-pre-wrap text-sm text-violet-900/90 leading-relaxed">
+                  {sanitizePlainText(summary)}
+                </p>
+              )}
+
+              {!hasSummary && !isSummarizing && !hasSummaryError && (
+                <p className="text-sm text-violet-700/60 italic">
+                  Click &ldquo;Summarize&rdquo; to generate an AI summary of this ticket and its conversation.
+                </p>
+              )}
+            </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
               <h2 className="mb-3 text-sm font-semibold text-gray-900">

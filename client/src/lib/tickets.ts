@@ -147,6 +147,19 @@ export async function polishReply(
   return body.polished;
 }
 
+export async function summarizeTicket(ticketId: string): Promise<string> {
+  const { data: body } = await axios.post<{ summary: string }>(
+    `/api/tickets/${ticketId}/summarize`,
+    {},
+    { withCredentials: true },
+  );
+
+  if (typeof body.summary !== "string") {
+    throw new Error("Invalid response from server");
+  }
+
+  return body.summary;
+}
 
 export async function fetchAgents(): Promise<AgentListItem[]> {
   const { data: body } = await axios.get<AgentsResponse>("/api/users/agents", {

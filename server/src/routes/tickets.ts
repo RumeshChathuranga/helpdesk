@@ -249,6 +249,68 @@ ${draft}`,
 });
 
 
+ticketsRouter.post("/:id/summarize", requireAgent, async (req, res) => {
+  const ticketId = await requireTicketIdOrRespond(res, req.params.id);
+  if (!ticketId) return;
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: {
+      subject: true,
+      body: true,
+      fromName: true,
+      fromEmail: true,
+      replies: {
+        orderBy: { createdAt: "asc" },
+        select: { body: true, isAi: true, createdAt: true },
+      },
+    },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const githubToken = process.env.GITHUB_MODELS_TOKEN;
+  if (!githubToken) {
+    res.status(500).json({ error: "GitHub Models token is not configured" });
+    return;
+  }
+
+  const githubModels = createOpenAICompatible({
+    name: "github-models",
+    apiKey: githubToken,
+    baseURL: "https://models.inference.ai.azure.com",
+  });
+
+  const conversationHistory = ticket.replies
+    .map((r, i) => {
+      const role = r.isAi ? "Agent (AI)" : "Agent";
+      return `Reply ${i + 1} [${role}]:\n${r.body}`;
+    })
+    .join("\n\n");
+
+  const prompt = `Ticket subject: ${ticket.subject}
+
+Customer (${ticket.fromName ?? ticket.fromEmail ?? "Unknown"}) original message:
+${ticket.body}
+
+${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No replies yet."}`;
+
+  const { text } = await generateText({
+    model: githubModels("o4-mini"),
+    system: `You are a concise helpdesk summarization assistant. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
+- The customer's core issue or request
+- Key actions taken or proposed by the support team
+- Current status or outstanding next steps
+Be concise and factual. Use plain text bullet points starting with "•".`,
+    prompt,
+  });
+
+  res.json({ summary: text });
+});
+
 ticketsRouter.post("/", requireAgent, async (req, res) => {
   const parsed = createTicketBodySchema.safeParse(req.body);
   if (!parsed.success) {
