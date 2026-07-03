@@ -14,6 +14,7 @@ import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { classifyTicket } from "../lib/tickets/classifyTicket.js";
 
 function firstZodIssueMessage(error: ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";
@@ -350,6 +351,11 @@ ticketsRouter.post("/", requireAgent, async (req, res) => {
       body: true,
     },
   });
+
+  // Non-blocking: classify in the background only when no explicit category was provided
+  if (!category) {
+    void classifyTicket(ticket.id, subject, body);
+  }
 
   res.status(201).json({ ticket });
 });
