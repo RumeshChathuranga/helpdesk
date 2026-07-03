@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import * as Sentry from "@sentry/react";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
@@ -8,10 +9,12 @@ import { TicketsPage } from "./pages/TicketsPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 
+const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
+
 export function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <SentryRoutes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
@@ -24,7 +27,7 @@ export function App() {
             </Route>
           </Route>
         </Route>
-      </Routes>
+      </SentryRoutes>
     </BrowserRouter>
   );
 }
