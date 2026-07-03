@@ -1,3 +1,4 @@
+import "./instrument.js";
 import { createApp } from "./app.js";
 import { startBoss } from "./lib/boss.js";
 import { registerClassifyTicketWorker } from "./jobs/classifyTicket.js";

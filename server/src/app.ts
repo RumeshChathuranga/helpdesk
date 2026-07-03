@@ -2,6 +2,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { toNodeHandler } from "better-auth/node";
+import * as Sentry from "@sentry/bun";
 import { auth } from "./lib/auth.js";
 import { router } from "./routes/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -33,6 +34,9 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
   app.use("/api", router);
+
+  // Sentry error handler must be registered before custom error handlers
+  Sentry.setupExpressErrorHandler(app);
 
   app.use(notFound);
   app.use(errorHandler);
