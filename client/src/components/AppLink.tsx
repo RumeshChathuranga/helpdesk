@@ -15,7 +15,7 @@ export function AppLink({
   return (
     <Link
       className={cn(
-        "font-medium hover:text-brand-800",
+        "font-medium text-primary hover:text-primary/80 transition-colors",
         underline && "hover:underline",
         truncate && "max-w-xs truncate block",
         className,
@@ -24,3 +24,4 @@ export function AppLink({
     />
   );
 }
+
