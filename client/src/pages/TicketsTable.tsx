@@ -35,6 +35,9 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 const SKELETON_ROWS = 6;
 
 export const STATUS_BADGE: Record<TicketStatus, string> = {
+  NEW: "inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500",
+  PROCESSING:
+    "inline-flex rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600",
   OPEN: "inline-flex rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800",
   IN_PROGRESS:
     "inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800",
@@ -45,6 +48,8 @@ export const STATUS_BADGE: Record<TicketStatus, string> = {
 };
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
+  NEW: "New",
+  PROCESSING: "Processing",
   OPEN: "Open",
   IN_PROGRESS: "In progress",
   RESOLVED: "Resolved",

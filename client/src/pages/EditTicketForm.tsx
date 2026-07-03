@@ -4,6 +4,7 @@ import { useForm, type Resolver } from "react-hook-form";
 import {
   ticketCategorySchema,
   ticketStatusSchema,
+  AGENT_VISIBLE_STATUSES,
   type TicketCategory,
   type TicketStatus,
 } from "core";
@@ -97,7 +98,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
                   <FormLabel>Status</FormLabel>
                   <FormControl>
                     <select className={selectClassName} {...field}>
-                      {ticketStatusSchema.options.map((value: TicketStatus) => (
+                      {AGENT_VISIBLE_STATUSES.map((value: TicketStatus) => (
                         <option key={value} value={value}>
                           {STATUS_LABEL[value]}
                         </option>

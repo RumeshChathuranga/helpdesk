@@ -6,6 +6,8 @@ import {
   listTicketsQuerySchema,
   ticketListSortToOrderBy,
   updateTicketBodySchema,
+  type TicketStatus,
+  AGENT_VISIBLE_STATUSES,
 } from "core";
 import { Router, type IRouter, type Response } from "express";
 import type { Prisma } from "@prisma/client";
@@ -14,7 +16,7 @@ import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
-import { enqueueClassifyTicket } from "../jobs/classifyTicket.js";
+import { enqueueProcessTicket } from "../jobs/processTicket.js";
 
 function firstZodIssueMessage(error: ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";
@@ -109,8 +111,16 @@ ticketsRouter.get("/", requireAgent, async (req, res) => {
 
   const { status, category, sort, search, page, pageSize } = parsed.data;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
-  const where = {
-    ...(status ? { status } : {}),
+
+  // Silently ignore requests for hidden statuses (NEW/PROCESSING are AI-internal states).
+  // If a specific agent-visible status is requested, apply it; otherwise exclude hidden ones.
+  const agentVisibleStatus =
+    status && (AGENT_VISIBLE_STATUSES as readonly TicketStatus[]).includes(status)
+      ? status
+      : undefined;
+
+  const where: Prisma.TicketWhereInput = {
+    status: agentVisibleStatus ?? { notIn: ["NEW", "PROCESSING"] },
     ...(category ? { category } : {}),
     ...(search ? buildTicketSearchWhere(search) : {}),
   };
@@ -345,6 +355,7 @@ ticketsRouter.post("/", requireAgent, async (req, res) => {
       category: category ?? "OTHER",
       assignedToId,
       createdById: session.user.id,
+      status: "NEW",
     },
     select: {
       ...ticketListSelect,
@@ -352,10 +363,8 @@ ticketsRouter.post("/", requireAgent, async (req, res) => {
     },
   });
 
-  // Enqueue a persistent pg-boss job — survives process restarts
-  if (!category) {
-    void enqueueClassifyTicket({ ticketId: ticket.id, subject, body });
-  }
+  // Always run the full process-ticket job (classification + KB resolution)
+  void enqueueProcessTicket({ ticketId: ticket.id, subject, body });
 
   res.status(201).json({ ticket });
 });

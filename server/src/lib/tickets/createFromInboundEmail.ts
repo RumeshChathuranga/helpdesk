@@ -2,7 +2,7 @@ import type { InboundEmail } from "core";
 import { inboundEmailSchema } from "core";
 import type { ZodError } from "zod";
 import { prisma } from "../prisma.js";
-import { enqueueClassifyTicket } from "../../jobs/classifyTicket.js";
+import { enqueueProcessTicket } from "../../jobs/processTicket.js";
 
 export type InboundEmailResult = {
   ticketId: string;
@@ -56,14 +56,14 @@ export async function createFromInboundEmail(
       fromEmail,
       fromName,
       externalMessageId: messageId,
-      status: "OPEN",
+      status: "NEW",
       category: "OTHER",
     },
     select: { id: true },
   });
 
-  // Enqueue a persistent pg-boss job — survives process restarts
-  void enqueueClassifyTicket({ ticketId: ticket.id, subject, body });
+  // Enqueue a persistent pg-boss job — classifies category + attempts KB auto-resolution
+  void enqueueProcessTicket({ ticketId: ticket.id, subject, body });
 
   return { ticketId: ticket.id, created: "ticket" };
 }

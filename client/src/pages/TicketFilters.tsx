@@ -1,6 +1,6 @@
 import { FIELD_LIMITS } from "core";
 import type { TicketCategory, TicketStatus } from "core";
-import { ticketCategorySchema, ticketStatusSchema } from "core";
+import { AGENT_VISIBLE_STATUSES, ticketCategorySchema } from "core";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -56,7 +56,7 @@ export function TicketFilters({
           }
         >
           <option value="ALL">All statuses</option>
-          {ticketStatusSchema.options.map((value) => (
+          {AGENT_VISIBLE_STATUSES.map((value: TicketStatus) => (
             <option key={value} value={value}>
               {STATUS_LABEL[value]}
             </option>

@@ -12,6 +12,8 @@ enum Role {
 }
 
 enum TicketStatus {
+  NEW
+  PROCESSING
   OPEN
   IN_PROGRESS
   RESOLVED
@@ -87,7 +89,7 @@ model Ticket {
   id                String         @id @default(cuid())
   subject           String
   body              String
-  status            TicketStatus   @default(OPEN)
+  status            TicketStatus   @default(NEW)
   category          TicketCategory @default(OTHER)
   priority          Int            @default(0)
   fromEmail         String?
