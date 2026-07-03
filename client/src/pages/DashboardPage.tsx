@@ -5,6 +5,7 @@ import {
   Clock,
   Bot,
   Percent,
+  Sparkles,
 } from "lucide-react";
 import React from "react";
 
@@ -12,13 +13,18 @@ export function DashboardPage() {
   const { data: stats, isLoading, isError } = useDashboardStats();
 
   return (
-    <div className="bg-white min-h-full rounded-2xl p-8 border border-gray-200 shadow-sm">
+    <div className="bg-card/40 min-h-full rounded-2xl p-8 border border-border/80 shadow-lg backdrop-blur-sm">
       <div className="mb-8 flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-black tracking-tight">
-          Dashboard
-        </h1>
+        <div>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">
+            Dashboard
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Real-time operations summary and AI performance metrics.
+          </p>
+        </div>
         {isError && (
-          <span className="text-red-700 text-sm bg-red-50 px-3 py-1 rounded-full border border-red-200">
+          <span className="text-red-400 text-sm bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
             Failed to load stats
           </span>
         )}
@@ -29,58 +35,63 @@ export function DashboardPage() {
           label="Total Tickets"
           value={stats?.totalTickets}
           isLoading={isLoading}
-          icon={<Ticket className="w-5 h-5 text-black" />}
-          valueColor="text-black"
+          icon={<Ticket className="w-5 h-5" />}
+          valueColor="text-foreground"
         />
         <StatCard
           label="Open Tickets"
           value={stats?.openTickets}
           isLoading={isLoading}
-          icon={<Clock className="w-5 h-5 text-black" />}
-          valueColor="text-black"
+          icon={<Clock className="w-5 h-5 text-amber-500" />}
+          valueColor="text-amber-500"
         />
         <StatCard
           label="AI Resolved"
           value={stats?.aiResolvedCount}
           isLoading={isLoading}
-          icon={<Bot className="w-5 h-5 text-black" />}
-          valueColor="text-black"
+          icon={<Bot className="w-5 h-5 text-emerald-500" />}
+          valueColor="text-emerald-400"
         />
         <StatCard
           label="AI Success Rate"
           value={stats?.aiResolvedPct !== undefined ? `${stats.aiResolvedPct}%` : undefined}
           isLoading={isLoading}
-          icon={<Percent className="w-5 h-5 text-black" />}
-          valueColor="text-black"
+          icon={<Percent className="w-5 h-5 text-primary" />}
+          valueColor="text-primary"
         />
       </div>
 
       {/* Ticket Volume Bar Chart */}
-      <div className="mt-10 rounded-2xl bg-white border border-gray-200 p-6 shadow-sm">
-        <div className="mb-6">
-          <h2 className="text-xl font-bold text-black tracking-tight">Ticket Volume</h2>
-          <p className="text-sm text-black opacity-70 mt-1">Total number of tickets per day over the past 30 days</p>
+      <div className="mt-10 rounded-2xl bg-card border border-border p-6 shadow-md">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-foreground tracking-tight">Ticket Volume</h2>
+            <p className="text-sm text-muted-foreground mt-1">Total number of tickets per day over the past 30 days</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-mono bg-background border border-border px-3 py-1.5 rounded-lg">
+            <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
+            AI Triage Enabled
+          </div>
         </div>
 
         {isLoading ? (
           <div>
             <div className="h-64 flex items-end gap-1.5 pt-4">
               {Array.from({ length: 30 }).map((_, idx) => {
-                // Generate a stable pseudorandom height for the skeleton bars
                 const heightPercent = 10 + (Math.sin(idx) * 0.5 + 0.5) * 60;
                 return (
                   <Skeleton
                     key={idx}
-                    className="flex-1 bg-gray-100 rounded-t-sm"
+                    className="flex-1 bg-muted/50 rounded-t-md"
                     style={{ height: `${heightPercent}%` }}
                   />
                 );
               })}
             </div>
             <div className="flex justify-between mt-3 px-1">
-              <Skeleton className="h-4 w-12 bg-gray-150" />
-              <Skeleton className="h-4 w-12 bg-gray-150" />
-              <Skeleton className="h-4 w-12 bg-gray-150" />
+              <Skeleton className="h-4 w-12 bg-muted/50" />
+              <Skeleton className="h-4 w-12 bg-muted/50" />
+              <Skeleton className="h-4 w-12 bg-muted/50" />
             </div>
           </div>
         ) : (
@@ -88,10 +99,10 @@ export function DashboardPage() {
             <div className="relative h-64 flex items-end">
               {/* Horizontal grid lines */}
               <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
-                <div className="border-b border-dashed border-gray-100 w-full h-0" />
-                <div className="border-b border-dashed border-gray-100 w-full h-0" />
-                <div className="border-b border-dashed border-gray-100 w-full h-0" />
-                <div className="border-b border-gray-250 w-full h-0" />
+                <div className="border-b border-dashed border-border/40 w-full h-0" />
+                <div className="border-b border-dashed border-border/40 w-full h-0" />
+                <div className="border-b border-dashed border-border/40 w-full h-0" />
+                <div className="border-b border-border w-full h-0" />
               </div>
 
               {/* Bars container */}
@@ -108,25 +119,25 @@ export function DashboardPage() {
                       >
                         {/* Tooltip */}
                         <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-20 transition-all duration-200">
-                          <div className="bg-black text-white text-xs rounded-lg py-1.5 px-3 shadow-xl whitespace-nowrap flex items-center gap-1.5">
-                            <span className="font-semibold text-gray-300">
+                          <div className="bg-slate-900 border border-border text-white text-xs rounded-xl py-1.5 px-3 shadow-2xl whitespace-nowrap flex items-center gap-1.5">
+                            <span className="font-semibold text-gray-400">
                               {new Date(day.date).toLocaleDateString(undefined, {
                                 month: "short",
                                 day: "numeric",
                               })}
                             </span>
-                            <span className="text-gray-600">|</span>
+                            <span className="text-gray-700">|</span>
                             <span className="text-white font-bold">
                               {day.count} {day.count === 1 ? "ticket" : "tickets"}
                             </span>
                           </div>
                           {/* Arrow */}
-                          <div className="w-1.5 h-1.5 bg-black rotate-45 -mt-0.5" />
+                          <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-border rotate-45 -mt-0.5" />
                         </div>
 
                         {/* Bar */}
                         <div
-                          className="w-full bg-black hover:bg-neutral-800 rounded-t-sm transition-all duration-300 cursor-pointer min-h-[2px]"
+                          className="w-full bg-primary/70 hover:bg-primary rounded-t-md transition-all duration-300 cursor-pointer min-h-[2px] shadow-[0_0_10px_rgba(59,130,246,0.15)] hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]"
                           style={{ height: `${percent}%` }}
                         />
                       </div>
@@ -138,7 +149,7 @@ export function DashboardPage() {
 
             {/* X Axis Labels */}
             {stats?.chartData && stats.chartData.length > 0 && (
-              <div className="flex justify-between mt-3 px-1 text-xs text-black font-semibold tracking-wide">
+              <div className="flex justify-between mt-4 px-1 text-xs text-muted-foreground font-mono font-medium tracking-wide">
                 <span>
                   {new Date(stats.chartData[0].date).toLocaleDateString(undefined, {
                     month: "short",
@@ -171,7 +182,7 @@ function StatCard({
   value,
   isLoading,
   icon,
-  valueColor = "text-black",
+  valueColor = "text-foreground",
 }: {
   label: string;
   value: string | number | undefined;
@@ -180,19 +191,22 @@ function StatCard({
   valueColor?: string;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-200 p-6 shadow-sm group hover:border-gray-300 hover:shadow-md transition-all">
+    <div className="relative overflow-hidden rounded-2xl bg-card border border-border p-6 shadow-md group hover:border-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
+      {/* Accent glow on hover */}
+      <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm font-semibold text-black tracking-wide">{label}</p>
-        <div className="p-2 bg-gray-50 rounded-xl border border-gray-100">
+        <p className="text-sm font-semibold text-muted-foreground tracking-wide">{label}</p>
+        <div className="p-2.5 bg-secondary/80 rounded-xl border border-border/80 text-foreground group-hover:text-primary-foreground group-hover:bg-primary transition-all duration-300">
           {icon}
         </div>
       </div>
       
       <div className="mt-2">
         {isLoading ? (
-          <Skeleton className="h-10 w-20 bg-gray-200 rounded-lg" />
+          <Skeleton className="h-10 w-24 bg-muted/50 rounded-lg" />
         ) : (
-          <p className={`text-4xl font-bold tracking-tight ${valueColor}`}>
+          <p className={`text-4xl font-bold tracking-tight font-mono ${valueColor}`}>
             {value ?? "—"}
           </p>
         )}
@@ -200,3 +214,4 @@ function StatCard({
     </div>
   );
 }
+
