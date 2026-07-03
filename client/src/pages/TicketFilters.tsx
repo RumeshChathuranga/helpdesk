@@ -10,8 +10,8 @@ export type TicketStatusFilter = TicketStatus | "ALL";
 export type TicketCategoryFilter = TicketCategory | "ALL";
 
 const selectClassName = cn(
-  "flex h-10 w-full min-w-[10rem] rounded-md border border-input bg-background px-3 py-2 text-sm",
-  "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+  "flex h-10 w-full min-w-[10rem] rounded-xl border border-input bg-card hover:bg-secondary/50 text-foreground px-3 py-2 text-sm transition-all duration-200 cursor-pointer",
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
 );
 
 type TicketFiltersProps = {

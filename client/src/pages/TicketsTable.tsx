@@ -35,16 +35,16 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 const SKELETON_ROWS = 6;
 
 export const STATUS_BADGE: Record<TicketStatus, string> = {
-  NEW: "inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500",
+  NEW: "inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-blue-400 border border-blue-500/20",
   PROCESSING:
-    "inline-flex rounded-md bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600",
-  OPEN: "inline-flex rounded-md bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800",
+    "inline-flex rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-violet-400 border border-violet-500/20",
+  OPEN: "inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-sky-400 border border-sky-500/20",
   IN_PROGRESS:
-    "inline-flex rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800",
+    "inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-amber-400 border border-amber-500/20",
   RESOLVED:
-    "inline-flex rounded-md bg-green-50 px-2 py-0.5 text-xs font-medium text-green-800",
+    "inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-400 border border-emerald-500/20",
   CLOSED:
-    "inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800",
+    "inline-flex rounded-full bg-zinc-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-zinc-500 border border-zinc-500/20",
 };
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -71,22 +71,22 @@ function requesterSortValue(ticket: TicketListItem): string {
 
 function RequesterCell({ ticket }: { ticket: TicketListItem }) {
   if (!ticket.fromName && !ticket.fromEmail) {
-    return <span className="text-gray-700">—</span>;
+    return <span className="text-muted-foreground">—</span>;
   }
 
   if (ticket.fromName && ticket.fromEmail) {
     return (
-      <div className="min-w-0 max-w-xs">
-        <div className="font-medium text-gray-900 truncate">
+      <div className="min-w-0 max-w-xs font-mono text-xs">
+        <div className="font-semibold text-foreground truncate">
           {sanitizePlainText(ticket.fromName)}
         </div>
-        <div className="text-xs text-gray-500 truncate">{ticket.fromEmail}</div>
+        <div className="text-[10px] text-muted-foreground truncate">{ticket.fromEmail}</div>
       </div>
     );
   }
 
   return (
-    <span className="text-gray-700 truncate block max-w-xs">
+    <span className="text-foreground font-mono text-xs truncate block max-w-xs">
       {sanitizePlainText(ticket.fromName ?? ticket.fromEmail ?? "")}
     </span>
   );
@@ -134,7 +134,7 @@ const columns: ColumnDef<TicketListItem>[] = [
     accessorKey: "category",
     header: "Category",
     cell: ({ row }) => (
-      <span className="text-gray-700">
+      <span className="text-[10px] font-mono font-bold tracking-wider uppercase bg-secondary/80 text-muted-foreground px-2 py-1 rounded border border-border">
         {CATEGORY_LABEL[row.original.category]}
       </span>
     ),
@@ -149,7 +149,7 @@ const columns: ColumnDef<TicketListItem>[] = [
     accessorKey: "createdAt",
     header: "Created",
     cell: ({ row }) => (
-      <span className="text-gray-600 tabular-nums">
+      <span className="text-muted-foreground font-mono text-xs tabular-nums">
         {dateFormatter.format(new Date(row.original.createdAt))}
       </span>
     ),
@@ -181,7 +181,7 @@ export function TicketsTable(props: TicketsTableProps) {
 
   return (
     <div
-      className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm"
+      className="rounded-xl border border-border bg-card overflow-hidden shadow-md"
       {...(isLoading
         ? {
             role: "status" as const,
@@ -192,7 +192,7 @@ export function TicketsTable(props: TicketsTableProps) {
     >
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-          <thead className="bg-gray-50 text-gray-700 font-medium border-b border-gray-200">
+          <thead className="bg-secondary/40 text-muted-foreground font-semibold border-b border-border/80 text-xs uppercase tracking-wider">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -208,15 +208,15 @@ export function TicketsTable(props: TicketsTableProps) {
                     <th
                       key={header.id}
                       scope="col"
-                      className="px-4 py-3"
+                      className="px-5 py-4"
                       aria-sort={ariaSort}
                     >
                       {header.isPlaceholder ? null : (
                         <button
                           type="button"
                           className={cn(
-                            "inline-flex items-center gap-1.5 hover:text-gray-900",
-                            sorted && "text-gray-900",
+                            "inline-flex items-center gap-1.5 hover:text-foreground transition-colors",
+                            sorted && "text-foreground font-bold",
                           )}
                           onClick={header.column.getToggleSortingHandler()}
                         >
@@ -233,32 +233,32 @@ export function TicketsTable(props: TicketsTableProps) {
               </tr>
             ))}
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-border/60">
             {isLoading
               ? Array.from({ length: SKELETON_ROWS }, (_, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-48 max-w-full" />
+                  <tr key={i} className="bg-card">
+                    <td className="px-5 py-4">
+                      <Skeleton className="h-4 w-48 max-w-full bg-muted/60" />
                     </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-5 w-20 rounded-md" />
+                    <td className="px-5 py-4">
+                      <Skeleton className="h-5 w-20 rounded-md bg-muted/60" />
                     </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-24" />
+                    <td className="px-5 py-4">
+                      <Skeleton className="h-4 w-24 bg-muted/60" />
                     </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="mt-1 h-3 w-40" />
+                    <td className="px-5 py-4">
+                      <Skeleton className="h-4 w-32 bg-muted/60" />
+                      <Skeleton className="mt-1.5 h-3 w-40 bg-muted/60" />
                     </td>
-                    <td className="px-4 py-3">
-                      <Skeleton className="h-4 w-40" />
+                    <td className="px-5 py-4">
+                      <Skeleton className="h-4 w-40 bg-muted/60" />
                     </td>
                   </tr>
                 ))
               : table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="hover:bg-gray-50/80">
+                  <tr key={row.id} className="hover:bg-secondary/20 transition-colors duration-150">
                     {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-4 py-3">
+                      <td key={cell.id} className="px-5 py-4">
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),

@@ -30,8 +30,11 @@ export function TicketsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Tickets</h1>
+      <div className="mb-8">
+        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Tickets</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Manage, filter, and track incoming customer support requests.
+        </p>
       </div>
 
       <TicketFilters
