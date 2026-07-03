@@ -9,6 +9,10 @@ router.get("/health", (_req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+router.get("/debug-sentry", (_req, _res) => {
+  throw new Error("My first Sentry error!");
+});
+
 router.use("/webhooks", inboundEmailWebhookRouter);
 router.use("/tickets", ticketsRouter);
 router.use("/users", usersRouter);
