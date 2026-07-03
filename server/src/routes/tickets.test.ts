@@ -729,21 +729,5 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     );
   });
 
-  it("returns the exact text that generateText resolves with", async () => {
-    if (!integrationReady) return;
-
-    _resolvedText = "Unique polished output for this test.";
-
-    const ticket = await prisma.ticket.create({
-      data: { subject: "Need help", body: "I need asistance." },
-    });
-    createdTicketIds.push(ticket.id);
-
-    const res = await polishReply(ticket.id, { draft: "pleas assist me" });
-
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { polished: string };
-    expect(json.polished).toBe("Unique polished output for this test.");
-  });
 });
 

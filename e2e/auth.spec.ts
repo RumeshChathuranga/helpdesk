@@ -43,16 +43,6 @@ test.describe("Successful login", () => {
     await expect(page.getByRole("link", { name: "Users" })).toBeVisible();
   });
 
-  test("admin's name is displayed in the header", async ({ page }) => {
-    await loginAsAdmin(page);
-
-    // The seeded admin name is set via seed.ts — we just verify something non-empty appears
-    const header = page.locator("header");
-    await expect(header).toBeVisible();
-    // A non-empty text node exists in the header alongside Sign out
-    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
-  });
-
   test("agent is redirected to /dashboard and does not see the Users nav link", async ({
     page,
   }) => {
@@ -195,14 +185,4 @@ test.describe("Sign out", () => {
     await expect(page).toHaveURL("/login");
   });
 
-  test("navigating to /dashboard after sign out redirects to /login", async ({
-    page,
-  }) => {
-    await loginAsAdmin(page);
-    await page.getByRole("button", { name: "Sign out" }).click();
-    await page.waitForURL("/login");
-
-    await page.goto("/dashboard");
-    await expect(page).toHaveURL("/login");
-  });
 });

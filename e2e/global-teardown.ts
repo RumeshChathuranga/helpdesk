@@ -8,13 +8,11 @@ export default async function globalTeardown() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) return;
 
-  if (process.env.CI) {
-    console.log("\n[Playwright] Dropping test database tables...");
-    execSync("bunx prisma migrate reset --force", {
-      cwd: resolve(__dirname, "../server"),
-      env: { ...process.env, DATABASE_URL: databaseUrl },
-      stdio: "inherit",
-    });
-    console.log("[Playwright] Test database cleaned up.\n");
-  }
+  console.log("\n[Playwright] Cleaning up test database...");
+  execSync("bunx prisma migrate reset --force", {
+    cwd: resolve(__dirname, "../server"),
+    env: { ...process.env, DATABASE_URL: databaseUrl },
+    stdio: "inherit",
+  });
+  console.log("[Playwright] Test database cleaned up.\n");
 }

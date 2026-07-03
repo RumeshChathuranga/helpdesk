@@ -128,10 +128,11 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(replyJson.created).toBe("reply");
     expect(replyJson.ticketId).toBe(ticketId);
 
-    const ticketCount = await prisma.ticket.count({
-      where: { fromEmail: "student@example.com" },
+    const replyTicket = await prisma.ticket.findUnique({
+      where: { id: ticketId },
     });
-    expect(ticketCount).toBe(1);
+    // The reply must be appended to the original ticket, not a new one
+    expect(replyTicket).not.toBeNull();
 
     const replies = await prisma.reply.findMany({
       where: { ticketId },

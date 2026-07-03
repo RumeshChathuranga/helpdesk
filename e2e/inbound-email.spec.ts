@@ -7,6 +7,17 @@ import {
 } from "./helpers/inboundEmail";
 
 test.describe("Inbound email webhook", () => {
+  const createdTicketIds: string[] = [];
+
+  test.afterEach(async ({ request }) => {
+    if (createdTicketIds.length === 0) return;
+    await loginAgentViaApi(request);
+    const ids = createdTicketIds.splice(0);
+    for (const id of ids) {
+      await request.delete(`${API_BASE_URL}/api/tickets/${id}`).catch(() => {});
+    }
+  });
+
   test("returns 401 without a valid bearer token", async ({ request }) => {
     const response = await postInboundEmail(
       request,
@@ -39,6 +50,7 @@ test.describe("Inbound email webhook", () => {
     const json = (await response.json()) as InboundEmailResponse;
     expect(json.created).toBe("ticket");
     expect(json.ticketId).toBeTruthy();
+    createdTicketIds.push(json.ticketId);
   });
 
   test("agent can view a webhook-created ticket via the tickets API", async ({
@@ -56,6 +68,7 @@ test.describe("Inbound email webhook", () => {
     });
     expect(webhookRes.ok()).toBeTruthy();
     const { ticketId } = (await webhookRes.json()) as InboundEmailResponse;
+    createdTicketIds.push(ticketId);
 
     await loginAgentViaApi(request);
 
@@ -106,6 +119,7 @@ test.describe("Inbound email webhook", () => {
     });
     expect(createRes.ok()).toBeTruthy();
     const { ticketId } = (await createRes.json()) as InboundEmailResponse;
+    createdTicketIds.push(ticketId);
 
     const replyRes = await postInboundEmail(request, {
       fromEmail: "student@example.com",
