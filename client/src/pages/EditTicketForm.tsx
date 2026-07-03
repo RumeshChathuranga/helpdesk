@@ -20,7 +20,8 @@ import {
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import type { AgentListItem, TicketDetail } from "@/lib/tickets";
 import { cn } from "@/lib/utils";
-import { useAgents, useUpdateTicket } from "@/hooks/useUpdateTicket";
+import { useUpdateTicket } from "@/hooks/useUpdateTicket";
+import { useAgents } from "@/hooks/useAgents";
 import { FormRootErrorAlert } from "./UserAccountFormFields";
 import { CATEGORY_LABEL, STATUS_LABEL } from "./TicketsTable";
 

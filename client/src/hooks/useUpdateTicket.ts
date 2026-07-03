@@ -1,27 +1,11 @@
 import {
   useMutation,
-  useQuery,
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { UpdateTicketBody } from "core";
-import { fetchAgents, ticketKeys, updateTicket } from "@/lib/tickets";
+import { ticketKeys, updateTicket } from "@/lib/tickets";
 import type { TicketListItem } from "@/pages/TicketsTable";
-
-export function useAgents() {
-  const query = useQuery({
-    queryKey: ticketKeys.agents,
-    queryFn: fetchAgents,
-  });
-
-  return {
-    agents: query.data ?? [],
-    isPending: query.isPending,
-    isError: query.isError,
-    error: query.error,
-    isSuccess: query.isSuccess,
-  };
-}
 
 export function useUpdateTicket(
   ticketId: string,

@@ -1,6 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useEffect } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { updateUserBodySchema } from "core";
@@ -15,14 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { useUpdateUser } from "@/hooks/useUpdateUser";
 import {
   type AccountFormValues,
   FormRootErrorAlert,
   UserAccountFormFields,
 } from "./UserAccountFormFields";
 import { type UserListItem } from "./UsersTable";
-
-type EditUserResponse = { user: UserListItem };
 
 type EditUserDialogProps = {
   open: boolean;
@@ -31,8 +28,6 @@ type EditUserDialogProps = {
 };
 
 export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps) {
-  const queryClient = useQueryClient();
-
   const form = useForm<AccountFormValues>({
     resolver: zodResolver(
       updateUserBodySchema,
@@ -50,24 +45,7 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
     }
   }, [user, form]);
 
-  const updateMutation = useMutation({
-    mutationFn: async (values: AccountFormValues) => {
-      if (!user) {
-        throw new Error("No user selected");
-      }
-      const { data } = await axios.patch<EditUserResponse>(
-        `/api/users/${user.id}`,
-        values,
-        { withCredentials: true },
-      );
-      return data.user;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      onOpenChange(false);
-      form.reset();
-    },
-  });
+  const updateMutation = useUpdateUser();
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
@@ -82,7 +60,9 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
     if (!user) return;
     form.clearErrors("root");
     try {
-      await updateMutation.mutateAsync(values);
+      await updateMutation.mutateAsync({ id: user.id, data: values });
+      onOpenChange(false);
+      form.reset();
     } catch (e) {
       form.setError("root", { message: getErrorMessage(e) });
     }

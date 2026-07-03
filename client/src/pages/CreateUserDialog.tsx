@@ -1,6 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import { useForm } from "react-hook-form";
 import { createUserBodySchema, type CreateUserBody } from "core";
 import { Button } from "@/components/ui/button";
@@ -14,13 +12,11 @@ import {
 } from "@/components/ui/dialog";
 import { Form } from "@/components/ui/form";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { useCreateUser } from "@/hooks/useCreateUser";
 import {
   FormRootErrorAlert,
   UserAccountFormFields,
 } from "./UserAccountFormFields";
-import { type UserListItem } from "./UsersTable";
-
-type CreateUserResponse = { user: UserListItem };
 
 type CreateUserDialogProps = {
   open: boolean;
@@ -28,28 +24,12 @@ type CreateUserDialogProps = {
 };
 
 export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
-  const queryClient = useQueryClient();
-
   const form = useForm<CreateUserBody>({
     resolver: zodResolver(createUserBodySchema),
     defaultValues: { name: "", email: "", password: "" },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (values: CreateUserBody) => {
-      const { data: body } = await axios.post<CreateUserResponse>(
-        "/api/users",
-        values,
-        { withCredentials: true },
-      );
-      return body.user;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      onOpenChange(false);
-      form.reset();
-    },
-  });
+  const createMutation = useCreateUser();
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
@@ -64,6 +44,8 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     form.clearErrors("root");
     try {
       await createMutation.mutateAsync(values);
+      onOpenChange(false);
+      form.reset();
     } catch (e) {
       form.setError("root", { message: getErrorMessage(e) });
     }

@@ -1,15 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import axios from "axios";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { useUsers } from "@/hooks/useUsers";
 import { CreateUserDialog } from "./CreateUserDialog";
 import { DeleteUserDialog } from "./DeleteUserDialog";
 import { EditUserDialog } from "./EditUserDialog";
 import { UsersTable, type UserListItem } from "./UsersTable";
-
-type UsersResponse = { users: UserListItem[] };
 
 type UsersDialogState =
   | { mode: "closed" }
@@ -20,18 +17,7 @@ type UsersDialogState =
 export function UsersPage() {
   const [dialog, setDialog] = useState<UsersDialogState>({ mode: "closed" });
 
-  const { data, isPending, isError, error, isSuccess } = useQuery({
-    queryKey: ["admin", "users"],
-    queryFn: async () => {
-      const { data: body } = await axios.get<UsersResponse>("/api/users", {
-        withCredentials: true,
-      });
-      if (!Array.isArray(body.users)) {
-        throw new Error("Invalid response from server");
-      }
-      return body.users;
-    },
-  });
+  const { users: data, isPending, isError, error, isSuccess } = useUsers();
 
   return (
     <div>

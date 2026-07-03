@@ -1,5 +1,3 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -11,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { useDeleteUser } from "@/hooks/useDeleteUser";
 import { type UserListItem } from "./UsersTable";
 
 type DeleteUserDialogProps = {
@@ -24,17 +23,7 @@ export function DeleteUserDialog({
   onOpenChange,
   user,
 }: DeleteUserDialogProps) {
-  const queryClient = useQueryClient();
-
-  const deleteMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      await axios.delete(`/api/users/${userId}`, { withCredentials: true });
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
-      onOpenChange(false);
-    },
-  });
+  const deleteMutation = useDeleteUser();
 
   function handleOpenChange(next: boolean) {
     onOpenChange(next);
@@ -77,7 +66,9 @@ export function DeleteUserDialog({
             disabled={deleteMutation.isPending || user == null}
             onClick={() => {
               if (user == null) return;
-              deleteMutation.mutate(user.id);
+              deleteMutation.mutate(user.id, {
+                onSuccess: () => onOpenChange(false),
+              });
             }}
           >
             {deleteMutation.isPending ? "Deleting…" : "Delete user"}
