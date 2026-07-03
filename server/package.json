@@ -18,8 +18,10 @@
     "test:server": "bun --env-file .env.test --env INBOUND_WEBHOOK_SECRET=test-inbound-webhook-secret src/index.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "^3.0.5",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.0.0",
+    "ai": "^7.0.14",
     "better-auth": "^1.5.6",
     "core": "workspace:*",
     "cors": "^2.8.5",

@@ -12,6 +12,8 @@ import type { Prisma } from "@prisma/client";
 import type { ZodError, ZodType } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
+import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { generateText } from "ai";
 
 function firstZodIssueMessage(error: ZodError): string {
   return error.issues[0]?.message ?? "Invalid input";
@@ -175,6 +177,77 @@ ticketsRouter.post("/:id/replies", requireAgent, async (req, res) => {
 
   res.status(201).json({ reply });
 });
+
+ticketsRouter.post("/:id/polish-reply", requireAgent, async (req, res) => {
+  const ticketId = await requireTicketIdOrRespond(res, req.params.id);
+  if (!ticketId) return;
+
+  const { draft } = req.body as { draft?: unknown };
+  if (typeof draft !== "string" || !draft.trim()) {
+    res.status(400).json({ error: "draft must be a non-empty string" });
+    return;
+  }
+
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { subject: true, body: true, fromName: true, fromEmail: true },
+  });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const githubToken = process.env.GITHUB_MODELS_TOKEN;
+  if (!githubToken) {
+    res.status(500).json({ error: "GitHub Models token is not configured" });
+    return;
+  }
+
+  const session = res.locals.agentSession!;
+  const agentName = session.user.name ?? "Support Team";
+  const agentEmail = `support@example.com`;
+
+  // Determine customer name for personalised greeting
+  const customerName = ticket.fromName?.trim()
+    ? ticket.fromName.trim().split(" ")[0] // first name only
+    : "there";
+
+  const githubModels = createOpenAICompatible({
+    name: "github-models",
+    apiKey: githubToken,
+    baseURL: "https://models.inference.ai.azure.com",
+  });
+
+  const { text } = await generateText({
+    model: githubModels("o4-mini"),
+    system: `You are a professional helpdesk agent assistant. Your job is to polish and improve agent reply drafts while keeping the same intent and tone. 
+Guidelines:
+- Fix grammar, spelling, and punctuation errors
+- Make the language clearer and more professional
+- Keep the same meaning and core content
+- Maintain a helpful, empathetic tone
+- Do not add new information or promises not in the original draft
+- Always open the reply with: "Dear ${customerName},"
+- Always close the reply with exactly this sign-off (on its own lines):
+
+Best regards,
+${agentName}
+${agentEmail}
+
+- Return ONLY the polished reply text (greeting + body + sign-off), no explanations or meta-commentary`,
+    prompt: `Ticket subject: ${ticket.subject}
+
+Original ticket message:
+${ticket.body}
+
+Agent's draft reply to polish:
+${draft}`,
+  });
+
+  res.json({ polished: text });
+});
+
 
 ticketsRouter.post("/", requireAgent, async (req, res) => {
   const parsed = createTicketBodySchema.safeParse(req.body);

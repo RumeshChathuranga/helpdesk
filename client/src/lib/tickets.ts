@@ -130,6 +130,24 @@ export async function createReply(
   return body.reply;
 }
 
+export async function polishReply(
+  ticketId: string,
+  draft: string,
+): Promise<string> {
+  const { data: body } = await axios.post<{ polished: string }>(
+    `/api/tickets/${ticketId}/polish-reply`,
+    { draft },
+    { withCredentials: true },
+  );
+
+  if (typeof body.polished !== "string") {
+    throw new Error("Invalid response from server");
+  }
+
+  return body.polished;
+}
+
+
 export async function fetchAgents(): Promise<AgentListItem[]> {
   const { data: body } = await axios.get<AgentsResponse>("/api/users/agents", {
     withCredentials: true,
