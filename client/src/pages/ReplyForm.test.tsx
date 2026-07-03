@@ -154,3 +154,166 @@ describe("ReplyForm", () => {
     });
   });
 });
+
+describe("ReplyForm — Polish button", () => {
+  it("renders the Polish button", () => {
+    renderReplyForm();
+
+    expect(
+      screen.getByRole("button", { name: /polish/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("Polish button is disabled when the message textarea is empty", () => {
+    renderReplyForm();
+
+    expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
+  });
+
+  it("Polish button is enabled once the user types a message", () => {
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+
+    expect(screen.getByRole("button", { name: /polish/i })).toBeEnabled();
+  });
+
+  it("calls POST /api/tickets/:id/polish-reply with the draft text", async () => {
+    mockedPost.mockResolvedValueOnce({ data: { polished: "Please help me." } });
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith(
+        "/api/tickets/t1/polish-reply",
+        { draft: "pleas help me" },
+        { withCredentials: true },
+      );
+    });
+  });
+
+  it("replaces the textarea content with the polished text on success", async () => {
+    mockedPost.mockResolvedValueOnce({
+      data: { polished: "Please help me." },
+    });
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Message")).toHaveValue("Please help me.");
+    });
+  });
+
+  it("shows 'Polishing…' label on the button while the request is in flight", async () => {
+    mockedPost.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ data: { polished: "Please help me." } }), 100);
+        }),
+    );
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    expect(
+      await screen.findByRole("button", { name: "Polishing…" }),
+    ).toBeDisabled();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: /^polish$/i }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("disables the Send reply button while polishing is in flight", async () => {
+    mockedPost.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ data: { polished: "Please help me." } }), 100);
+        }),
+    );
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Send reply" }),
+      ).toBeDisabled();
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "Send reply" }),
+      ).toBeEnabled();
+    });
+  });
+
+  it("shows an error message when the polish API call fails", async () => {
+    const err = new AxiosError("Server error");
+    err.response = {
+      status: 500,
+      statusText: "Internal Server Error",
+      data: { error: "GitHub Models token is not configured" },
+      headers: {},
+      config: {} as InternalAxiosRequestConfig,
+    };
+    mockedPost.mockRejectedValueOnce(err);
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    expect(
+      await screen.findByText(/github models token is not configured/i),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves the original draft text when polishing fails", async () => {
+    const err = new AxiosError("Server error");
+    err.response = {
+      status: 500,
+      statusText: "Internal Server Error",
+      data: { error: "GitHub Models token is not configured" },
+      headers: {},
+      config: {} as InternalAxiosRequestConfig,
+    };
+    mockedPost.mockRejectedValueOnce(err);
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "pleas help me" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /polish/i }));
+
+    await screen.findByText(/github models token is not configured/i);
+
+    expect(screen.getByLabelText("Message")).toHaveValue("pleas help me");
+  });
+});
+

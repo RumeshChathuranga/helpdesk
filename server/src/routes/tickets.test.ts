@@ -563,3 +563,187 @@ describe("PATCH /api/tickets/:id", () => {
     expect(json.error).toBe("Ticket not found");
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/tickets/:id/polish-reply
+// ---------------------------------------------------------------------------
+// The AI SDK is mocked with Bun's mock.module() so no real network calls are
+// made to GitHub Models.  The rest of the test follows the same integration
+// pattern used above (real Express server, real DB, auth cookie).
+
+import { mock, spyOn } from "bun:test";
+
+// Keep a reference to the stubbed generateText so individual tests can control
+// its return value.  The mock is registered at module evaluation time so that
+// Bun hoists it before the server imports the route.
+let _resolvedText = "Please assist me.";
+
+mock.module("ai", () => ({
+  generateText: async (_opts: unknown) => ({ text: _resolvedText }),
+}));
+
+mock.module("@ai-sdk/openai-compatible", () => ({
+  createOpenAICompatible: () => () => ({}),
+}));
+
+describe("POST /api/tickets/:id/polish-reply", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  let integrationReady = false;
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    try {
+      const { createApp } = await import("../app.js");
+      const app = createApp();
+      server = app.listen(0);
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "agent@example.com",
+          password: "password@123",
+        }),
+      });
+
+      if (!loginRes.ok) return;
+
+      authCookie = loginRes.headers.getSetCookie().join("; ");
+      integrationReady = true;
+    } catch {
+      integrationReady = false;
+    }
+  });
+
+  afterEach(async () => {
+    // Reset to the default polished text for the next test
+    _resolvedText = "Please assist me.";
+
+    if (!integrationReady || createdTicketIds.length === 0) return;
+
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function polishReply(ticketId: string, body: unknown) {
+    return fetch(`${baseUrl}/api/tickets/${ticketId}/polish-reply`, {
+      method: "POST",
+      headers: { Cookie: authCookie, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    if (!integrationReady) return;
+
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Auth test", body: "Body" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await fetch(
+      `${baseUrl}/api/tickets/${ticket.id}/polish-reply`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // no Cookie header → unauthenticated
+        body: JSON.stringify({ draft: "hello" }),
+      },
+    );
+
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 404 for a non-existent ticket", async () => {
+    if (!integrationReady) return;
+
+    const res = await polishReply("nonexistent-ticket-id", {
+      draft: "Help me please.",
+    });
+
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("Ticket not found");
+  });
+
+  it("returns 400 when draft is missing from the request body", async () => {
+    if (!integrationReady) return;
+
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Test subject", body: "Test body" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await polishReply(ticket.id, {});
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("draft must be a non-empty string");
+  });
+
+  it("returns 400 when draft is blank/whitespace only", async () => {
+    if (!integrationReady) return;
+
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Test subject", body: "Test body" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await polishReply(ticket.id, { draft: "   " });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("draft must be a non-empty string");
+  });
+
+  it("returns 200 with the polished text from the AI model", async () => {
+    if (!integrationReady) return;
+
+    _resolvedText = "Please assist me at your earliest convenience.";
+
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject: "Need help",
+        body: "I need asistance.",
+        fromName: "Alice Smith",
+      },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await polishReply(ticket.id, { draft: "pleas assist me" });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { polished: string };
+    expect(json.polished).toBe(
+      "Please assist me at your earliest convenience.",
+    );
+  });
+
+  it("returns the exact text that generateText resolves with", async () => {
+    if (!integrationReady) return;
+
+    _resolvedText = "Unique polished output for this test.";
+
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Need help", body: "I need asistance." },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await polishReply(ticket.id, { draft: "pleas assist me" });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { polished: string };
+    expect(json.polished).toBe("Unique polished output for this test.");
+  });
+});
+
