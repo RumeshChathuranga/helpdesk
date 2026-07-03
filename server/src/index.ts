@@ -14,7 +14,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 3000;
 
 const app = createApp();
 
