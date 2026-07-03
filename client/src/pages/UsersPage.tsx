@@ -35,11 +35,16 @@ export function UsersPage() {
 
   return (
     <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Users</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Users</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage user accounts, credentials, roles, and administrative permissions.
+          </p>
+        </div>
         <Button
           type="button"
-          className="shrink-0"
+          className="shrink-0 rounded-xl"
           onClick={() => setDialog({ mode: "create" })}
         >
           Create user
