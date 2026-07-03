@@ -1,18 +1,14 @@
 import { createUserBodySchema, updateUserBodySchema } from "core";
 import { Role } from "@prisma/client";
 import { Router, type IRouter } from "express";
-import type { ZodError } from "zod";
 import { hashPasswordForUser } from "../lib/hashPasswordForUser.js";
 import { signUpEmailInternal } from "../lib/internalEmailSignUp.js";
 import { prisma } from "../lib/prisma.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 import { requireAgent } from "../middleware/requireAgent.js";
+import { validateBody } from "../middleware/validate.js";
 
 const CREDENTIAL_PROVIDER_ID = "credential" as const;
-
-function firstZodIssueMessage(error: ZodError): string {
-  return error.issues[0]?.message ?? "Invalid input";
-}
 
 export const usersRouter: IRouter = Router();
 
@@ -52,14 +48,8 @@ usersRouter.get("/", requireAdmin, async (_req, res) => {
   res.json({ users });
 });
 
-usersRouter.post("/", requireAdmin, async (req, res) => {
-  const parsed = createUserBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return;
-  }
-
-  const { name, email, password } = parsed.data;
+usersRouter.post("/", requireAdmin, validateBody(createUserBodySchema), async (req, res) => {
+  const { name, email, password } = req.body;
 
   const activeWithEmail = await prisma.user.findFirst({
     where: { email, deletedAt: null },
@@ -89,20 +79,14 @@ usersRouter.post("/", requireAdmin, async (req, res) => {
   res.status(201).json({ user });
 });
 
-usersRouter.patch("/:id", requireAdmin, async (req, res) => {
-  const parsed = updateUserBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return;
-  }
-
+usersRouter.patch("/:id", requireAdmin, validateBody(updateUserBodySchema), async (req, res) => {
   const id = typeof req.params.id === "string" ? req.params.id : req.params.id?.[0];
   if (!id) {
     res.status(400).json({ error: "Invalid user id" });
     return;
   }
 
-  const { name, email, password } = parsed.data;
+  const { name, email, password } = req.body;
 
   const existing = await prisma.user.findFirst({
     where: { id, deletedAt: null },

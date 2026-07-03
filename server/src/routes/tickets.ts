@@ -11,16 +11,12 @@ import {
 } from "core";
 import { Router, type IRouter, type Response } from "express";
 import type { Prisma } from "@prisma/client";
-import type { ZodError, ZodType } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { enqueueProcessTicket } from "../jobs/processTicket.js";
-
-function firstZodIssueMessage(error: ZodError): string {
-  return error.issues[0]?.message ?? "Invalid input";
-}
+import { validateBody, validateQuery } from "../middleware/validate.js";
 
 function parseRouteId(
   id: string | string[] | undefined,
@@ -29,19 +25,6 @@ function parseRouteId(
     return id;
   }
   return id?.[0];
-}
-
-function parseBodyOrRespond<T>(
-  res: Response,
-  schema: ZodType<T>,
-  body: unknown,
-): T | null {
-  const parsed = schema.safeParse(body);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return null;
-  }
-  return parsed.data;
 }
 
 async function requireTicketIdOrRespond(
@@ -102,14 +85,8 @@ function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
   };
 }
 
-ticketsRouter.get("/", requireAgent, async (req, res) => {
-  const parsed = listTicketsQuerySchema.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return;
-  }
-
-  const { status, category, sort, search, page, pageSize } = parsed.data;
+ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), async (req, res) => {
+  const { status, category, sort, search, page, pageSize } = req.query;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
   // Silently ignore requests for hidden statuses (NEW/PROCESSING are AI-internal states).
@@ -188,17 +165,14 @@ ticketsRouter.get("/:id", requireAgent, async (req, res) => {
   res.json({ ticket });
 });
 
-ticketsRouter.post("/:id/replies", requireAgent, async (req, res) => {
-  const input = parseBodyOrRespond(res, createReplyBodySchema, req.body);
-  if (!input) return;
-
+ticketsRouter.post("/:id/replies", requireAgent, validateBody(createReplyBodySchema), async (req, res) => {
   const ticketId = await requireTicketIdOrRespond(res, req.params.id);
   if (!ticketId) return;
 
   const reply = await prisma.reply.create({
     data: {
       ticketId,
-      body: input.body,
+      body: req.body.body,
     },
     select: replySelect,
   });
@@ -339,20 +313,14 @@ Be concise and factual. Use plain text bullet points starting with "•".`,
   res.json({ summary: text });
 });
 
-ticketsRouter.post("/", requireAgent, async (req, res) => {
-  const parsed = createTicketBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return;
-  }
-
+ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), async (req, res) => {
   const session = res.locals.agentSession;
   if (!session) {
     res.status(401).json({ error: "Unauthorized" });
     return;
   }
 
-  const { subject, body, category, assignedToId } = parsed.data;
+  const { subject, body, category, assignedToId } = req.body;
 
   if (assignedToId) {
     const assignee = await prisma.user.findFirst({
@@ -394,13 +362,7 @@ ticketsRouter.post("/", requireAgent, async (req, res) => {
   res.status(201).json({ ticket });
 });
 
-ticketsRouter.patch("/:id", requireAgent, async (req, res) => {
-  const parsed = updateTicketBodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: firstZodIssueMessage(parsed.error) });
-    return;
-  }
-
+ticketsRouter.patch("/:id", requireAgent, validateBody(updateTicketBodySchema), async (req, res) => {
   const id = parseRouteId(req.params.id);
   if (!id) {
     res.status(400).json({ error: "Invalid ticket id" });
@@ -417,7 +379,7 @@ ticketsRouter.patch("/:id", requireAgent, async (req, res) => {
     return;
   }
 
-  const { status, category, assignedToId } = parsed.data;
+  const { status, category, assignedToId } = req.body;
 
   if (assignedToId) {
     const assignee = await prisma.user.findFirst({
