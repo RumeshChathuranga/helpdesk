@@ -56,16 +56,21 @@ export function EditUserDialog({ open, onOpenChange, user }: EditUserDialogProps
     }
   }
 
-  async function onSubmit(values: AccountFormValues) {
+  function onSubmit(values: AccountFormValues) {
     if (!user) return;
     form.clearErrors("root");
-    try {
-      await updateMutation.mutateAsync({ id: user.id, data: values });
-      onOpenChange(false);
-      form.reset();
-    } catch (e) {
-      form.setError("root", { message: getErrorMessage(e) });
-    }
+    updateMutation.mutate(
+      { id: user.id, data: values },
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          form.reset();
+        },
+        onError: (e) => {
+          form.setError("root", { message: getErrorMessage(e) });
+        },
+      },
+    );
   }
 
   return (

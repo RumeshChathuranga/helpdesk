@@ -40,15 +40,17 @@ export function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) 
     }
   }
 
-  async function onSubmit(values: CreateUserBody) {
+  function onSubmit(values: CreateUserBody) {
     form.clearErrors("root");
-    try {
-      await createMutation.mutateAsync(values);
-      onOpenChange(false);
-      form.reset();
-    } catch (e) {
-      form.setError("root", { message: getErrorMessage(e) });
-    }
+    createMutation.mutate(values, {
+      onSuccess: () => {
+        onOpenChange(false);
+        form.reset();
+      },
+      onError: (e) => {
+        form.setError("root", { message: getErrorMessage(e) });
+      },
+    });
   }
 
   return (

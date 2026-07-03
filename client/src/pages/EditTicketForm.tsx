@@ -63,18 +63,21 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
     });
   }, [ticket, form]);
 
-  async function onSubmit(values: EditTicketFormValues) {
+  function onSubmit(values: EditTicketFormValues) {
     form.clearErrors("root");
-    try {
-      await updateMutation.mutateAsync({
+    updateMutation.mutate(
+      {
         status: values.status,
         category: values.category,
         assignedToId:
           values.assigneeId === "" ? null : values.assigneeId,
-      });
-    } catch (e) {
-      form.setError("root", { message: getErrorMessage(e) });
-    }
+      },
+      {
+        onError: (e) => {
+          form.setError("root", { message: getErrorMessage(e) });
+        },
+      },
+    );
   }
 
   return (

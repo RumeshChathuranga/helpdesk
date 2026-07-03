@@ -44,14 +44,16 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
     },
   });
 
-  async function onSubmit(values: ReplyFormValues) {
+  function onSubmit(values: ReplyFormValues) {
     form.clearErrors("root");
-    try {
-      await createMutation.mutateAsync(values);
-      form.reset({ body: "" });
-    } catch (e) {
-      form.setError("root", { message: getErrorMessage(e) });
-    }
+    createMutation.mutate(values, {
+      onSuccess: () => {
+        form.reset({ body: "" });
+      },
+      onError: (e) => {
+        form.setError("root", { message: getErrorMessage(e) });
+      },
+    });
   }
 
   function handlePolish() {

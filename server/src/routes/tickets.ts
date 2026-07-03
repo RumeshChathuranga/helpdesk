@@ -117,20 +117,15 @@ ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), asyn
 });
 
 ticketsRouter.get("/stats", requireAgent, async (req, res) => {
-  try {
-    const result = await prisma.$queryRaw<[{ get_dashboard_stats: any }]>`
-      SELECT get_dashboard_stats();
-    `;
-    const stats = result[0]?.get_dashboard_stats;
-    if (!stats) {
-      res.status(500).json({ error: "Failed to load dashboard statistics" });
-      return;
-    }
-    res.json(stats);
-  } catch (error) {
-    console.error("[stats] Stored function execution failed:", error);
-    res.status(500).json({ error: "Internal server error" });
+  const result = await prisma.$queryRaw<[{ get_dashboard_stats: any }]>`
+    SELECT get_dashboard_stats();
+  `;
+  const stats = result[0]?.get_dashboard_stats;
+  if (!stats) {
+    res.status(500).json({ error: "Failed to load dashboard statistics" });
+    return;
   }
+  res.json(stats);
 });
 
 ticketsRouter.get("/:id", requireAgent, async (req, res) => {
