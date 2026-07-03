@@ -180,6 +180,7 @@ describe("GET /api/tickets", () => {
       data: {
         subject: `Older ${runId}`,
         body: "Older body",
+        status: "OPEN",
         createdAt: new Date("2024-01-01T12:00:00.000Z"),
       },
     });
@@ -187,6 +188,7 @@ describe("GET /api/tickets", () => {
       data: {
         subject: `Newer ${runId}`,
         body: "Newer body",
+        status: "OPEN",
         createdAt: new Date("2024-06-01T12:00:00.000Z"),
       },
     });
@@ -213,10 +215,10 @@ describe("GET /api/tickets", () => {
 
     const runId = crypto.randomUUID();
     const zebra = await prisma.ticket.create({
-      data: { subject: `Zebra ${runId}`, body: "Z" },
+      data: { subject: `Zebra ${runId}`, body: "Z", status: "OPEN" },
     });
     const alpha = await prisma.ticket.create({
-      data: { subject: `Alpha ${runId}`, body: "A" },
+      data: { subject: `Alpha ${runId}`, body: "A", status: "OPEN" },
     });
     createdTicketIds.push(zebra.id, alpha.id);
 
@@ -247,6 +249,7 @@ describe("GET /api/tickets", () => {
         body: "Body",
         fromName: "Zara",
         fromEmail: "z@example.com",
+        status: "OPEN",
       },
     });
     const anna = await prisma.ticket.create({
@@ -255,6 +258,7 @@ describe("GET /api/tickets", () => {
         body: "Body",
         fromName: "Anna",
         fromEmail: "a@example.com",
+        status: "OPEN",
       },
     });
     createdTicketIds.push(zara.id, anna.id);
@@ -284,10 +288,10 @@ describe("GET /api/tickets", () => {
 
     const runId = crypto.randomUUID();
     const first = await prisma.ticket.create({
-      data: { subject: `Page A ${runId}`, body: "A" },
+      data: { subject: `Page A ${runId}`, body: "A", status: "OPEN" },
     });
     const second = await prisma.ticket.create({
-      data: { subject: `Page B ${runId}`, body: "B" },
+      data: { subject: `Page B ${runId}`, body: "B", status: "OPEN" },
     });
     createdTicketIds.push(first.id, second.id);
 
@@ -388,6 +392,7 @@ describe("GET /api/tickets/:id", () => {
         subject: `Detail ${runId}`,
         body: "Ticket body content",
         assignedToId: agent.id,
+        status: "OPEN",
       },
     });
     createdTicketIds.push(ticket.id);
@@ -647,7 +652,7 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     if (!integrationReady) return;
 
     const ticket = await prisma.ticket.create({
-      data: { subject: "Auth test", body: "Body" },
+      data: { subject: "Auth test", body: "Body", status: "OPEN" },
     });
     createdTicketIds.push(ticket.id);
 
@@ -680,7 +685,7 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     if (!integrationReady) return;
 
     const ticket = await prisma.ticket.create({
-      data: { subject: "Test subject", body: "Test body" },
+      data: { subject: "Test subject", body: "Test body", status: "OPEN" },
     });
     createdTicketIds.push(ticket.id);
 
@@ -695,7 +700,7 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     if (!integrationReady) return;
 
     const ticket = await prisma.ticket.create({
-      data: { subject: "Test subject", body: "Test body" },
+      data: { subject: "Test subject", body: "Test body", status: "OPEN" },
     });
     createdTicketIds.push(ticket.id);
 
@@ -716,6 +721,7 @@ describe("POST /api/tickets/:id/polish-reply", () => {
         subject: "Need help",
         body: "I need asistance.",
         fromName: "Alice Smith",
+        status: "OPEN",
       },
     });
     createdTicketIds.push(ticket.id);
@@ -729,5 +735,116 @@ describe("POST /api/tickets/:id/polish-reply", () => {
     );
   });
 
+});
+
+describe("GET /api/tickets/stats", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  let integrationReady = false;
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    try {
+      const { createApp } = await import("../app.js");
+      const app = createApp();
+      server = app.listen(0);
+      const address = server.address() as AddressInfo;
+      baseUrl = `http://127.0.0.1:${address.port}`;
+
+      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "agent@example.com",
+          password: "password@123",
+        }),
+      });
+
+      if (!loginRes.ok) return;
+
+      authCookie = loginRes.headers.getSetCookie().join("; ");
+      integrationReady = true;
+    } catch {
+      integrationReady = false;
+    }
+  });
+
+  afterEach(async () => {
+    if (!integrationReady || createdTicketIds.length === 0) return;
+
+    await prisma.reply.deleteMany({
+      where: { ticketId: { in: [...createdTicketIds] } },
+    });
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function getStats() {
+    return fetch(`${baseUrl}/api/tickets/stats`, {
+      headers: { Cookie: authCookie },
+    });
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    if (!integrationReady) return;
+
+    const res = await fetch(`${baseUrl}/api/tickets/stats`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 200 with dashboard statistics", async () => {
+    if (!integrationReady) return;
+
+    // Create a few tickets with different statuses
+    const ticket1 = await prisma.ticket.create({
+      data: { subject: "Stats Open", body: "Body", status: "OPEN" },
+    });
+    const ticket2 = await prisma.ticket.create({
+      data: { subject: "Stats Resolved", body: "Body", status: "RESOLVED" },
+    });
+    const ticket3 = await prisma.ticket.create({
+      data: { subject: "Stats New", body: "Body", status: "NEW" }, // should be excluded
+    });
+    createdTicketIds.push(ticket1.id, ticket2.id, ticket3.id);
+
+    // Create an AI reply for the resolved ticket to verify AI count
+    await prisma.reply.create({
+      data: {
+        ticketId: ticket2.id,
+        body: "AI reply text",
+        isAi: true,
+      },
+    });
+
+    const res = await getStats();
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      totalTickets: number;
+      openTickets: number;
+      resolvedTickets: number;
+      aiResolvedCount: number;
+      aiResolvedPct: number;
+      chartData: { date: string; count: number }[];
+    };
+
+    expect(json.totalTickets).toBeGreaterThanOrEqual(2);
+    expect(json.openTickets).toBeGreaterThanOrEqual(1);
+    expect(json.resolvedTickets).toBeGreaterThanOrEqual(1);
+    expect(json.aiResolvedCount).toBeGreaterThanOrEqual(1);
+    expect(json.aiResolvedPct).toBe(100);
+    expect(json.chartData).toHaveLength(30);
+  });
 });
 

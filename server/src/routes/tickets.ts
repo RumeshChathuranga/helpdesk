@@ -139,6 +139,23 @@ ticketsRouter.get("/", requireAgent, async (req, res) => {
   res.json({ tickets, total, page, pageSize });
 });
 
+ticketsRouter.get("/stats", requireAgent, async (req, res) => {
+  try {
+    const result = await prisma.$queryRaw<[{ get_dashboard_stats: any }]>`
+      SELECT get_dashboard_stats();
+    `;
+    const stats = result[0]?.get_dashboard_stats;
+    if (!stats) {
+      res.status(500).json({ error: "Failed to load dashboard statistics" });
+      return;
+    }
+    res.json(stats);
+  } catch (error) {
+    console.error("[stats] Stored function execution failed:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 ticketsRouter.get("/:id", requireAgent, async (req, res) => {
   const id = parseRouteId(req.params.id);
   if (!id) {
@@ -348,12 +365,20 @@ ticketsRouter.post("/", requireAgent, async (req, res) => {
     }
   }
 
+  let finalAssignedToId = assignedToId;
+  if (!finalAssignedToId) {
+    const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+    if (aiAgent) {
+      finalAssignedToId = aiAgent.id;
+    }
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
       subject,
       body,
       category: category ?? "OTHER",
-      assignedToId,
+      assignedToId: finalAssignedToId,
       createdById: session.user.id,
       status: "NEW",
     },
