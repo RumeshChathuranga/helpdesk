@@ -45,7 +45,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 **AI Integration:**
 - Vercel AI SDK
 - GitHub Models Inference Endpoint (utilizing the `o4-mini` model)
-- Transformers.js (Local ML Inference)
+- Transformers.js (Local ML inference using the `Xenova/all-MiniLM-L6-v2` embedding model)
 
 **Deployment & Tooling:**
 - Bun (Package manager and runtime)
