@@ -1,6 +1,8 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
+import path from "path";
+import { fileURLToPath } from "url";
 import { toNodeHandler } from "better-auth/node";
 import * as Sentry from "@sentry/bun";
 import { auth } from "./lib/auth.js";
@@ -34,6 +36,20 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 
   app.use("/api", router);
+
+  if (process.env.NODE_ENV === "production") {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const clientDistPath = path.resolve(__dirname, "../../client/dist");
+    
+    app.use(express.static(clientDistPath));
+    app.get(/(.*)/, (req, res, next) => {
+      if (req.path.startsWith("/api")) {
+        return next();
+      }
+      res.sendFile(path.join(clientDistPath, "index.html"));
+    });
+  }
 
   // Sentry error handler must be registered before custom error handlers
   Sentry.setupExpressErrorHandler(app);

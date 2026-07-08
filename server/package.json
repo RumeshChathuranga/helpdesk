@@ -6,8 +6,8 @@
   "scripts": {
     "postinstall": "bunx prisma generate",
     "dev": "bun --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir dist --target bun",
-    "start": "bun dist/index.js",
+    "build": "echo 'Server build skipped, using bun runner directly'",
+    "start": "bun src/index.ts",
     "db:generate": "bunx prisma generate",
     "db:migrate": "bunx prisma migrate dev",
     "db:migrate:deploy": "bunx prisma migrate deploy",
