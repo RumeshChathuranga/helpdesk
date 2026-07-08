@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
 import { authClient } from "@/lib/auth-client";
-import { LayoutDashboard, Ticket, Users, LogOut, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, Ticket, Users, LogOut, ShieldAlert, Book } from "lucide-react";
 
 export function Layout() {
   const { data: session } = authClient.useSession();
@@ -41,9 +41,14 @@ export function Layout() {
             Tickets
           </NavItem>
           {session?.user?.role === "ADMIN" && (
-            <NavItem to="/users" icon={<Users className="w-4.5 h-4.5" />}>
-              Users
-            </NavItem>
+            <>
+              <NavItem to="/users" icon={<Users className="w-4.5 h-4.5" />}>
+                Users
+              </NavItem>
+              <NavItem to="/knowledge" icon={<Book className="w-4.5 h-4.5" />}>
+                Knowledge Base
+              </NavItem>
+            </>
           )}
         </nav>
 

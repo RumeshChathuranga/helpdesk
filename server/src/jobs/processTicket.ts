@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { readFile } from "fs/promises";
 import { resolve } from "path";
 import { z } from "zod";
+import { pipeline } from "@huggingface/transformers";
 import { ticketCategorySchema, type TicketCategory } from "core";
 import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
@@ -46,25 +47,7 @@ const resolutionSchema = z.object({
   reply: z.string().optional(),
 });
 
-// ─── Knowledge base loader ────────────────────────────────────────────────────
-
-let cachedKnowledgeBase: string | null = null;
-
-async function loadKnowledgeBase(): Promise<string> {
-  if (cachedKnowledgeBase) return cachedKnowledgeBase;
-
-  // The knowledge base sits at server/knowledge-base.md.
-  // process.cwd() at runtime is the server package root.
-  const kbPath = resolve(process.cwd(), "knowledge-base.md");
-
-  try {
-    cachedKnowledgeBase = await readFile(kbPath, "utf-8");
-    return cachedKnowledgeBase;
-  } catch {
-    // If the file can't be read, we can't resolve — escalate to OPEN
-    throw new Error(`Could not read knowledge base at ${kbPath}`);
-  }
-}
+// ─── Knowledge base loader (Removed in favor of RAG) ──────────────────────────
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
@@ -144,13 +127,38 @@ export async function registerProcessTicketWorker(): Promise<void> {
         `[process-ticket] Ticket ${ticketId} classified as ${category}`,
       );
 
-      // ── Step 2: Attempt KB resolution ──────────────────────────────────────
-      let knowledgeBase: string;
+      // ── Step 2: Attempt KB resolution using RAG ──────────────────────────────
+      let knowledgeBase = "";
       try {
-        knowledgeBase = await loadKnowledgeBase();
+        const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
+        
+        // Generate embedding
+        const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+        const output = await extractor(textToEmbed, { pooling: "mean", normalize: true });
+        const embeddingArray = Array.from(output.tolist()[0] as number[]);
+        const vectorString = `[${embeddingArray.join(',')}]`;
+
+        // Retrieve similar chunks
+        const chunks = await prisma.$queryRaw<{ text: string, similarity: number }[]>`
+          SELECT text, 1 - (embedding <=> ${vectorString}::vector) AS similarity
+          FROM "KnowledgeChunk"
+          WHERE 1 - (embedding <=> ${vectorString}::vector) > 0.75
+          ORDER BY similarity DESC
+          LIMIT 3
+        `;
+
+        if (chunks.length === 0) {
+          console.info(`[process-ticket] No relevant KB chunks found for ${ticketId}, escalating to OPEN.`);
+          await prisma.ticket.update({
+            where: { id: ticketId },
+            data: { status: "OPEN" },
+          });
+          return;
+        }
+        knowledgeBase = chunks.map(c => c.text).join("\n\n---\n\n");
       } catch (err) {
         console.warn(
-          `[process-ticket] KB unavailable for ${ticketId}, escalating to OPEN:`,
+          `[process-ticket] RAG retrieval failed for ${ticketId}, escalating to OPEN:`,
           err,
         );
         await prisma.ticket.update({

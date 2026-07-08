@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.5",
+    "@huggingface/transformers": "^4.2.0",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.0.0",
     "@sentry/bun": "^10.63.0",

@@ -8,6 +8,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { TicketsPage } from "./pages/TicketsPage";
 import { TicketDetailPage } from "./pages/TicketDetailPage";
 import { UsersPage } from "./pages/UsersPage";
+import { KnowledgePage } from "./pages/KnowledgePage";
 
 const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
 
@@ -24,6 +25,7 @@ export function App() {
             <Route path="/tickets/:id" element={<TicketDetailPage />} />
             <Route element={<AdminRoute />}>
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/knowledge" element={<KnowledgePage />} />
             </Route>
           </Route>
         </Route>
