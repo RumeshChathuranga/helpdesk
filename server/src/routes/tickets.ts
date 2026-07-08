@@ -86,7 +86,7 @@ function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
 }
 
 ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), async (req, res) => {
-  const { status, category, sort, search, page, pageSize } = req.query;
+  const { status, category, sort, search, page, pageSize } = req.query as any;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
   // Silently ignore requests for hidden statuses (NEW/PROCESSING are AI-internal states).
