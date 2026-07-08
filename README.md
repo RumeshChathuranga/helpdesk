@@ -14,7 +14,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 
 ### AI-Powered Capabilities (Powered by GitHub Models & AI SDK)
 - **Intelligent Ticket Classification:** Incoming support tickets are automatically analyzed and categorized (e.g., Billing, Technical, Bug, Feature Request) upon creation via background jobs, eliminating manual triage.
-- **Auto-Resolution & Knowledge Base Retrieval:** The AI agent attempts to resolve tickets autonomously by consulting a predefined knowledge base. If it identifies a clear, complete answer, it sends a reply and resolves the ticket instantly.
+- **Retrieval-Augmented Generation (RAG):** The AI autonomously resolves tickets using a highly optimized, local RAG pipeline. Incoming tickets are converted into vector embeddings via `transformers.js` (`Xenova/all-MiniLM-L6-v2`) and semantically searched against a `pgvector` database to instantly inject the most relevant Knowledge Base context. If a clear answer is found, it sends a reply and resolves the ticket instantly.
 - **Smart Escalation:** The AI safely detects edge cases—such as legal threats, chargebacks, out-of-policy refund requests, or complex technical issues—and immediately escalates them to human agents.
 - **Agent Draft Polishing:** Agents can write quick, rough drafts, and the AI will instantly refine the text to ensure professional grammar, clarity, empathy, and consistent brand formatting.
 - **Conversation Summarization:** For lengthy ticket threads, the AI generates a concise, 3-5 bullet point summary highlighting the core issue, actions taken, and next steps, providing agents with instant context.
@@ -22,7 +22,9 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 ### Core Helpdesk Features
 - **Ticket Management:** Comprehensive dashboard to view, filter, sort, and manage tickets.
 - **Role-Based Access Control:** Differentiated roles for Admins (user management, system configuration) and Agents (ticket handling).
-- **Background Job Processing:** Robust asynchronous job queue (using `pg-boss`) to handle AI classification and auto-reply tasks reliably in the background without blocking the main API thread.
+- **Knowledge Base UI:** Dedicated admin interface to seamlessly add, manage, and delete vector-embedded Knowledge Base snippets directly from the UI.
+- **Inbound Email Webhooks:** Secure webhook endpoints configured to parse raw inbound email payloads directly into structured support tickets.
+- **Background Job Processing:** Robust asynchronous job queue (using `pg-boss`) to handle AI classification, embedding generation, and auto-reply tasks reliably in the background without blocking the main API thread.
 - **Monorepo Architecture:** Clean codebase separation using Turborepo/npm workspaces to share types and validation schemas across the client and server.
 
 ## Tech Stack
@@ -38,11 +40,12 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 - pg-boss (Background Jobs & Message Queuing)
 
 **Database:**
-- PostgreSQL
+- PostgreSQL (with `pgvector` extension for high-performance cosine similarity searches)
 
 **AI Integration:**
 - Vercel AI SDK
 - GitHub Models Inference Endpoint (utilizing the `o4-mini` model)
+- Transformers.js (Local ML Inference)
 
 **Deployment & Tooling:**
 - Bun (Package manager and runtime)
