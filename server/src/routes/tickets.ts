@@ -351,8 +351,19 @@ ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), asyn
     },
   });
 
-  // Always run the full process-ticket job (classification + KB resolution)
-  void enqueueProcessTicket({ ticketId: ticket.id, subject, body });
+  // Always run the full process-ticket job (classification + KB resolution).
+  // If enqueueing itself fails, the ticket must not stay invisible in NEW —
+  // fall back to OPEN so an agent can still pick it up manually.
+  try {
+    await enqueueProcessTicket({ ticketId: ticket.id, subject, body });
+  } catch (err) {
+    console.error(`Failed to enqueue process-ticket job for ${ticket.id}:`, err);
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { status: "OPEN" },
+    });
+    ticket.status = "OPEN";
+  }
 
   res.status(201).json({ ticket });
 });

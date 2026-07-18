@@ -49,6 +49,34 @@ const resolutionSchema = z.object({
 
 // ─── Knowledge base loader (Removed in favor of RAG) ──────────────────────────
 
+// ─── Recovery helper ───────────────────────────────────────────────────────────
+
+/**
+ * Flips a ticket to OPEN so it is visible to human agents, unassigning it if it's
+ * still assigned to the AI agent. Used both when the AI explicitly can't resolve a
+ * ticket and as the top-level failure recovery path — a ticket must never stay
+ * stuck in NEW/PROCESSING, which would make it invisible in the agent-facing list.
+ */
+async function escalateToOpen(
+  ticketId: string,
+  aiAgentId: string | undefined,
+): Promise<void> {
+  const currentTicket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { assignedToId: true },
+  });
+
+  const shouldUnassign = Boolean(aiAgentId) && currentTicket?.assignedToId === aiAgentId;
+
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: {
+      status: "OPEN",
+      ...(shouldUnassign ? { assignedToId: null } : {}),
+    },
+  });
+}
+
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
 /**
@@ -66,115 +94,146 @@ export async function registerProcessTicketWorker(): Promise<void> {
       if (!job) return;
       const { ticketId, subject, body } = job.data;
 
-      const githubToken = process.env.GITHUB_MODELS_TOKEN;
-      if (!githubToken) {
-        throw new Error("GITHUB_MODELS_TOKEN not set");
-      }
-
-      // Find AI agent
+      // Find AI agent up front so the catch-all recovery path below can use it
+      // even if failure happens before the try block's own lookup runs.
       const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
 
-      const currentTicket = await prisma.ticket.findUnique({
-        where: { id: ticketId },
-        select: { assignedToId: true },
-      });
-
-      // Mark as PROCESSING so agents don't see it while AI works on it
-      await prisma.ticket.update({
-        where: { id: ticketId },
-        data: {
-          status: "PROCESSING",
-          assignedToId: currentTicket?.assignedToId ?? aiAgent?.id,
-        },
-      });
-
-      console.info(`[process-ticket] Ticket ${ticketId} → PROCESSING`);
-
-      const githubModels = createOpenAICompatible({
-        name: "github-models",
-        apiKey: githubToken,
-        baseURL: "https://models.inference.ai.azure.com",
-      });
-
-      // ── Step 1: Classify ──────────────────────────────────────────────────
-      let category: TicketCategory = "OTHER";
       try {
-        const { text: classifyText } = await generateText({
-          model: githubModels("o4-mini"),
-          system: `You are a helpdesk ticket classifier. Classify the given support ticket into exactly one of these categories:\n${categoryPromptLines}\n\nRespond with ONLY a JSON object in this exact format: {"category": "<CATEGORY>"}\nDo not include any explanation or extra text — only the json object.`,
-          prompt: `Subject: ${subject}\n\nBody:\n${body}`,
+        const githubToken = process.env.GITHUB_MODELS_TOKEN;
+        if (!githubToken) {
+          throw new Error("GITHUB_MODELS_TOKEN not set");
+        }
+
+        const currentTicket = await prisma.ticket.findUnique({
+          where: { id: ticketId },
+          select: { assignedToId: true },
         });
 
-        const parsed = classificationSchema.safeParse(
-          JSON.parse(classifyText.trim()),
-        );
-        if (parsed.success) {
-          category = parsed.data.category;
-        }
-      } catch (err) {
-        console.warn(
-          `[process-ticket] Classification failed for ${ticketId}, using OTHER:`,
-          err,
-        );
-      }
-
-      await prisma.ticket.update({
-        where: { id: ticketId },
-        data: { category },
-      });
-
-      console.info(
-        `[process-ticket] Ticket ${ticketId} classified as ${category}`,
-      );
-
-      // ── Step 2: Attempt KB resolution using RAG ──────────────────────────────
-      let knowledgeBase = "";
-      try {
-        const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
-        
-        // Generate embedding
-        const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-        const output = await extractor(textToEmbed, { pooling: "mean", normalize: true });
-        const embeddingArray = Array.from(output.tolist()[0] as number[]);
-        const vectorString = `[${embeddingArray.join(',')}]`;
-
-        // Retrieve similar chunks
-        const chunks = await prisma.$queryRaw<{ text: string, similarity: number }[]>`
-          SELECT text, 1 - (embedding <=> ${vectorString}::vector) AS similarity
-          FROM "KnowledgeChunk"
-          WHERE 1 - (embedding <=> ${vectorString}::vector) > 0.75
-          ORDER BY similarity DESC
-          LIMIT 3
-        `;
-
-        if (chunks.length === 0) {
-          console.info(`[process-ticket] No relevant KB chunks found for ${ticketId}, escalating to OPEN.`);
-          await prisma.ticket.update({
-            where: { id: ticketId },
-            data: { status: "OPEN" },
-          });
-          return;
-        }
-        knowledgeBase = chunks.map(c => c.text).join("\n\n---\n\n");
-      } catch (err) {
-        console.warn(
-          `[process-ticket] RAG retrieval failed for ${ticketId}, escalating to OPEN:`,
-          err,
-        );
+        // Mark as PROCESSING so agents don't see it while AI works on it
         await prisma.ticket.update({
           where: { id: ticketId },
-          data: { status: "OPEN" },
+          data: {
+            status: "PROCESSING",
+            assignedToId: currentTicket?.assignedToId ?? aiAgent?.id,
+          },
         });
-        return;
+
+        console.info(`[process-ticket] Ticket ${ticketId} → PROCESSING`);
+
+        await runProcessTicket({ ticketId, subject, body, aiAgent, githubToken });
+      } catch (err) {
+        console.error(
+          `[process-ticket] Unhandled failure for ${ticketId}, forcing OPEN so it isn't stranded:`,
+          err,
+        );
+        await escalateToOpen(ticketId, aiAgent?.id);
+        // Rethrow so pg-boss still records the failure/retry — we're guaranteeing
+        // recovery, not silencing the error.
+        throw err;
       }
+    },
+  );
 
-      let resolved = false;
-      let aiReply: string | undefined;
+  console.log(`[pg-boss] Worker registered for queue: ${PROCESS_TICKET_QUEUE}`);
+}
 
-      try {
-        const { text: resolveText } = await generateText({
-          model: githubModels("o4-mini"),
-          system: `You are a helpful customer support AI for "Code with Mosh". Your job is to resolve support tickets using the knowledge base provided below.
+/**
+ * Runs classification + RAG-based auto-resolution for a ticket that has already
+ * been marked PROCESSING. Any error thrown here is caught by the worker's
+ * top-level try/catch, which forces the ticket back to OPEN before rethrowing.
+ */
+async function runProcessTicket({
+  ticketId,
+  subject,
+  body,
+  aiAgent,
+  githubToken,
+}: {
+  ticketId: string;
+  subject: string;
+  body: string;
+  aiAgent: { id: string } | null;
+  githubToken: string;
+}): Promise<void> {
+  const githubModels = createOpenAICompatible({
+    name: "github-models",
+    apiKey: githubToken,
+    baseURL: "https://models.inference.ai.azure.com",
+  });
+
+  // ── Step 1: Classify ──────────────────────────────────────────────────────
+  let category: TicketCategory = "OTHER";
+  try {
+    const { text: classifyText } = await generateText({
+      model: githubModels("o4-mini"),
+      system: `You are a helpdesk ticket classifier. Classify the given support ticket into exactly one of these categories:\n${categoryPromptLines}\n\nRespond with ONLY a JSON object in this exact format: {"category": "<CATEGORY>"}\nDo not include any explanation or extra text — only the json object.`,
+      prompt: `Subject: ${subject}\n\nBody:\n${body}`,
+    });
+
+    const parsed = classificationSchema.safeParse(
+      JSON.parse(classifyText.trim()),
+    );
+    if (parsed.success) {
+      category = parsed.data.category;
+    }
+  } catch (err) {
+    console.warn(
+      `[process-ticket] Classification failed for ${ticketId}, using OTHER:`,
+      err,
+    );
+  }
+
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { category },
+  });
+
+  console.info(
+    `[process-ticket] Ticket ${ticketId} classified as ${category}`,
+  );
+
+  // ── Step 2: Attempt KB resolution using RAG ────────────────────────────────
+  let knowledgeBase = "";
+  try {
+    const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
+
+    // Generate embedding
+    const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
+    const output = await extractor(textToEmbed, { pooling: "mean", normalize: true });
+    const embeddingArray = Array.from(output.tolist()[0] as number[]);
+    const vectorString = `[${embeddingArray.join(',')}]`;
+
+    // Retrieve similar chunks
+    const chunks = await prisma.$queryRaw<{ text: string, similarity: number }[]>`
+      SELECT text, 1 - (embedding <=> ${vectorString}::vector) AS similarity
+      FROM "KnowledgeChunk"
+      WHERE 1 - (embedding <=> ${vectorString}::vector) > 0.75
+      ORDER BY similarity DESC
+      LIMIT 3
+    `;
+
+    if (chunks.length === 0) {
+      console.info(`[process-ticket] No relevant KB chunks found for ${ticketId}, escalating to OPEN.`);
+      await escalateToOpen(ticketId, aiAgent?.id);
+      return;
+    }
+    knowledgeBase = chunks.map(c => c.text).join("\n\n---\n\n");
+  } catch (err) {
+    console.warn(
+      `[process-ticket] RAG retrieval failed for ${ticketId}, escalating to OPEN:`,
+      err,
+    );
+    await escalateToOpen(ticketId, aiAgent?.id);
+    return;
+  }
+
+  let resolved = false;
+  let aiReply: string | undefined;
+
+  try {
+    const { text: resolveText } = await generateText({
+      model: githubModels("o4-mini"),
+      system: `You are a helpful customer support AI for "Code with Mosh". Your job is to resolve support tickets using the knowledge base provided below.
 
 ## Knowledge Base
 ${knowledgeBase}
@@ -198,72 +257,55 @@ or
 {"resolved": false}
 
 Do not include any explanation outside the JSON.`,
-          prompt: `Subject: ${subject}\n\nCustomer message:\n${body}`,
-        });
+      prompt: `Subject: ${subject}\n\nCustomer message:\n${body}`,
+    });
 
-        const parsed = resolutionSchema.safeParse(
-          JSON.parse(resolveText.trim()),
-        );
+    const parsed = resolutionSchema.safeParse(
+      JSON.parse(resolveText.trim()),
+    );
 
-        if (parsed.success) {
-          resolved = parsed.data.resolved;
-          aiReply = parsed.data.reply;
-        } else {
-          console.warn(
-            `[process-ticket] Unexpected resolution response for ${ticketId}: ${resolveText}`,
-          );
-        }
-      } catch (err) {
-        console.warn(
-          `[process-ticket] Resolution AI call failed for ${ticketId}, escalating to OPEN:`,
-          err,
-        );
-      }
+    if (parsed.success) {
+      resolved = parsed.data.resolved;
+      aiReply = parsed.data.reply;
+    } else {
+      console.warn(
+        `[process-ticket] Unexpected resolution response for ${ticketId}: ${resolveText}`,
+      );
+    }
+  } catch (err) {
+    console.warn(
+      `[process-ticket] Resolution AI call failed for ${ticketId}, escalating to OPEN:`,
+      err,
+    );
+  }
 
-      if (resolved && aiReply) {
-        // Create the AI reply and mark ticket as RESOLVED
-        await prisma.$transaction([
-          prisma.reply.create({
-            data: {
-              ticketId,
-              body: aiReply,
-              isAi: true,
-            },
-          }),
-          prisma.ticket.update({
-            where: { id: ticketId },
-            data: { status: "RESOLVED" },
-          }),
-        ]);
+  if (resolved && aiReply) {
+    // Create the AI reply and mark ticket as RESOLVED
+    await prisma.$transaction([
+      prisma.reply.create({
+        data: {
+          ticketId,
+          body: aiReply,
+          isAi: true,
+        },
+      }),
+      prisma.ticket.update({
+        where: { id: ticketId },
+        data: { status: "RESOLVED" },
+      }),
+    ]);
 
-        console.info(
-          `[process-ticket] Ticket ${ticketId} auto-resolved by AI ✓`,
-        );
-      } else {
-        // Can't answer — pass to human agents
-        const currentTicket = await prisma.ticket.findUnique({
-          where: { id: ticketId },
-          select: { assignedToId: true },
-        });
+    console.info(
+      `[process-ticket] Ticket ${ticketId} auto-resolved by AI ✓`,
+    );
+  } else {
+    // Can't answer — pass to human agents
+    await escalateToOpen(ticketId, aiAgent?.id);
 
-        const shouldUnassign = aiAgent && currentTicket?.assignedToId === aiAgent.id;
-
-        await prisma.ticket.update({
-          where: { id: ticketId },
-          data: {
-            status: "OPEN",
-            ...(shouldUnassign ? { assignedToId: null } : {}),
-          },
-        });
-
-        console.info(
-          `[process-ticket] Ticket ${ticketId} escalated to OPEN (AI could not resolve)`,
-        );
-      }
-    },
-  );
-
-  console.log(`[pg-boss] Worker registered for queue: ${PROCESS_TICKET_QUEUE}`);
+    console.info(
+      `[process-ticket] Ticket ${ticketId} escalated to OPEN (AI could not resolve)`,
+    );
+  }
 }
 
 // ─── Enqueue helper ───────────────────────────────────────────────────────────

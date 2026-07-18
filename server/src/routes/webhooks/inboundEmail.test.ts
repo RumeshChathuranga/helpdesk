@@ -147,4 +147,55 @@ describe("POST /api/webhooks/inbound-email", () => {
     expect(replies).toHaveLength(1);
     expect(replies[0]?.body).toBe("Following up on my refund");
   });
+
+  it("appends a reply-to-a-reply to the original ticket, not the first reply's message id", async () => {
+    const originalMessageId = `<thread-${crypto.randomUUID()}@mail>`;
+
+    const createRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Refund question",
+      body: "Original message",
+      messageId: originalMessageId,
+    });
+    const { ticketId } = (await createRes.json()) as { ticketId: string };
+    createdTicketIds.push(ticketId);
+
+    // First customer reply — In-Reply-To points at the original ticket message id.
+    const secondMessageId = `<reply-1-${crypto.randomUUID()}@mail>`;
+    const firstReplyRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Re: Refund question",
+      body: "Following up on my refund",
+      messageId: secondMessageId,
+      inReplyTo: originalMessageId,
+    });
+    expect(firstReplyRes.status).toBe(200);
+
+    // Second customer reply — real mail clients set In-Reply-To to the most
+    // recent message in the thread, i.e. the first reply's message id, not
+    // the original ticket's. This must still land on the original ticket.
+    const thirdMessageId = `<reply-2-${crypto.randomUUID()}@mail>`;
+    const secondReplyRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Re: Refund question",
+      body: "Still waiting on this",
+      messageId: thirdMessageId,
+      inReplyTo: secondMessageId,
+    });
+
+    expect(secondReplyRes.status).toBe(200);
+    const secondReplyJson = (await secondReplyRes.json()) as {
+      ticketId: string;
+      created: string;
+    };
+    expect(secondReplyJson.created).toBe("reply");
+    expect(secondReplyJson.ticketId).toBe(ticketId);
+
+    const replies = await prisma.reply.findMany({
+      where: { ticketId },
+      orderBy: { createdAt: "asc" },
+    });
+    expect(replies).toHaveLength(2);
+    expect(replies[1]?.body).toBe("Still waiting on this");
+  });
 });

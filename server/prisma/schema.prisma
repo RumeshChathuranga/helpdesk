@@ -124,6 +124,8 @@ model Reply {
 
   ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   ticketId String
+
+  @@index([externalMessageId])
 }
 
 model KnowledgeChunk {
