@@ -141,8 +141,12 @@ export async function registerProcessTicketWorker(): Promise<void> {
  * Runs classification + RAG-based auto-resolution for a ticket that has already
  * been marked PROCESSING. Any error thrown here is caught by the worker's
  * top-level try/catch, which forces the ticket back to OPEN before rethrowing.
+ *
+ * Exported (in addition to being used by the pg-boss worker above) so unit
+ * tests can invoke the classification/RAG/resolution logic directly with a
+ * mocked `ai` + embedding pipeline, without going through pg-boss.
  */
-async function runProcessTicket({
+export async function runProcessTicket({
   ticketId,
   subject,
   body,

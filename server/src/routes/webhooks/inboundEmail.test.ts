@@ -17,12 +17,14 @@ const WEBHOOK_SECRET = "test-inbound-webhook-secret";
 
 let server: Server;
 let baseUrl: string;
+let bossStarted = false;
 const createdTicketIds: string[] = [];
 
 beforeAll(async () => {
   process.env.INBOUND_WEBHOOK_SECRET = WEBHOOK_SECRET;
 
   await startBoss();
+  bossStarted = true;
   await boss.createQueue("process-ticket");
 
   const app = createApp();
@@ -45,8 +47,14 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  server.close();
-  await boss.stop();
+  // Guard both steps individually: if beforeAll threw partway through (e.g.
+  // startBoss() failed), `server`/`bossStarted` may never have been set, and
+  // we don't want teardown to throw a second, unrelated error on top of the
+  // real setup failure.
+  server?.close();
+  if (bossStarted) {
+    await boss.stop();
+  }
 });
 
 async function postInboundEmail(

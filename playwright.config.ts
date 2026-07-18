@@ -54,7 +54,12 @@ export default defineConfig({
     {
       command: "bun run --filter client dev",
       url: "http://localhost:5173",
-      reuseExistingServer: !process.env.CI,
+      // Never reuse an already-running dev Vite server here: it would be
+      // proxying `/api` to whatever VITE_API_PROXY_TARGET it was originally
+      // started with (typically the dev API on port 3000), not this run's
+      // isolated E2E_API_URL — silently sending browser traffic (and writes)
+      // into the dev database instead of the test one.
+      reuseExistingServer: false,
       timeout: 30_000,
       env: {
         VITE_API_PROXY_TARGET: E2E_API_URL,

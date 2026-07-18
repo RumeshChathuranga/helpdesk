@@ -1,13 +1,5 @@
-import {
-  afterAll,
-  afterEach,
-  beforeAll,
-  describe,
-  expect,
-  it,
-} from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import {
   DEFAULT_TICKET_LIST_SORT,
   DEFAULT_TICKET_PAGE_SIZE,
@@ -17,6 +9,8 @@ import {
 } from "core";
 import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
+import { boss, startBoss } from "../lib/boss.js";
+import { loginAsAgent, startTestServer } from "../test/helpers.js";
 
 describe("ticketListSortToOrderBy", () => {
   it("maps subject sort", () => {
@@ -96,38 +90,16 @@ describe("GET /api/tickets", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    try {
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) {
-        return;
-      }
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterEach(async () => {
-    if (!integrationReady || createdTicketIds.length === 0) {
+    if (createdTicketIds.length === 0) {
       return;
     }
 
@@ -148,10 +120,6 @@ describe("GET /api/tickets", () => {
   }
 
   it("returns 400 for an invalid sort query param", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const res = await listTickets("?sort=not-a-sort");
 
     expect(res.status).toBe(400);
@@ -160,10 +128,6 @@ describe("GET /api/tickets", () => {
   });
 
   it("returns 200 for each supported sort param", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     for (const sort of ticketListSortValues) {
       const res = await listTickets(`?sort=${sort}`);
       expect(res.status).toBe(200);
@@ -171,10 +135,6 @@ describe("GET /api/tickets", () => {
   });
 
   it("defaults to newest first when sort is omitted", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const runId = crypto.randomUUID();
     const older = await prisma.ticket.create({
       data: {
@@ -209,10 +169,6 @@ describe("GET /api/tickets", () => {
   });
 
   it("sorts by subject ascending", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const runId = crypto.randomUUID();
     const zebra = await prisma.ticket.create({
       data: { subject: `Zebra ${runId}`, body: "Z", status: "OPEN" },
@@ -238,10 +194,6 @@ describe("GET /api/tickets", () => {
   });
 
   it("sorts by requester name ascending", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const runId = crypto.randomUUID();
     const zara = await prisma.ticket.create({
       data: {
@@ -282,10 +234,6 @@ describe("GET /api/tickets", () => {
   });
 
   it("paginates ticket results", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const runId = crypto.randomUUID();
     const first = await prisma.ticket.create({
       data: { subject: `Page A ${runId}`, body: "A", status: "OPEN" },
@@ -319,38 +267,16 @@ describe("GET /api/tickets/:id", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    try {
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) {
-        return;
-      }
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterEach(async () => {
-    if (!integrationReady || createdTicketIds.length === 0) {
+    if (createdTicketIds.length === 0) {
       return;
     }
 
@@ -374,16 +300,14 @@ describe("GET /api/tickets/:id", () => {
   }
 
   it("returns 200 with body, replies ordered asc, and assignedTo", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const agent = await prisma.user.findFirst({
       where: { email: "agent@example.com", deletedAt: null },
       select: { id: true },
     });
     if (!agent) {
-      return;
+      throw new Error(
+        "Seeded agent@example.com not found — run `bun prisma/seed-test.ts` against helpdesk_test.",
+      );
     }
 
     const runId = crypto.randomUUID();
@@ -438,10 +362,6 @@ describe("GET /api/tickets/:id", () => {
   });
 
   it("returns 404 for a missing ticket", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const res = await getTicket("nonexistent-ticket-id");
     expect(res.status).toBe(404);
 
@@ -450,42 +370,154 @@ describe("GET /api/tickets/:id", () => {
   });
 });
 
+describe("POST /api/tickets", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    // enqueueProcessTicket() sends through the shared pg-boss singleton, which
+    // needs an open connection pool. Other test files in this same `bun test`
+    // process may have started (or fully stopped) that singleton already —
+    // starting it here is idempotent and reopens it if it was closed.
+    await startBoss();
+    await boss.createQueue("process-ticket");
+
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length === 0) {
+      return;
+    }
+
+    await prisma.reply.deleteMany({
+      where: { ticketId: { in: [...createdTicketIds] } },
+    });
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function createTicket(body: Record<string, unknown>) {
+    return fetch(`${baseUrl}/api/tickets`, {
+      method: "POST",
+      headers: {
+        Cookie: authCookie,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    const res = await fetch(`${baseUrl}/api/tickets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject: "Auth test", body: "Body" }),
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 400 when subject is missing", async () => {
+    const res = await createTicket({ body: "No subject here" });
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBeTruthy();
+  });
+
+  it("creates a ticket, defaults category to OTHER, and auto-assigns the AI agent", async () => {
+    const runId = crypto.randomUUID();
+    const res = await createTicket({
+      subject: `Created ${runId}`,
+      body: "Please help me with this issue.",
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as {
+      ticket: {
+        id: string;
+        subject: string;
+        category: string;
+        status: string;
+        assignedToId: string | null;
+      };
+    };
+    createdTicketIds.push(json.ticket.id);
+
+    expect(json.ticket.subject).toBe(`Created ${runId}`);
+    expect(json.ticket.category).toBe("OTHER");
+    // The job was enqueued successfully, so the ticket stays in its initial
+    // NEW state — it is up to the (separately tested) worker to move it on.
+    expect(json.ticket.status).toBe("NEW");
+
+    const aiAgent = await prisma.user.findUnique({
+      where: { email: "ai@example.com" },
+      select: { id: true },
+    });
+    if (aiAgent) {
+      expect(json.ticket.assignedToId).toBe(aiAgent.id);
+    }
+
+    const stored = await prisma.ticket.findUnique({
+      where: { id: json.ticket.id },
+    });
+    expect(stored?.subject).toBe(`Created ${runId}`);
+  });
+
+  it("respects an explicit category and assignee", async () => {
+    const agent = await prisma.user.findFirst({
+      where: { email: "agent@example.com", deletedAt: null },
+      select: { id: true },
+    });
+    if (!agent) {
+      throw new Error(
+        "Seeded agent@example.com not found — run `bun prisma/seed-test.ts` against helpdesk_test.",
+      );
+    }
+
+    const runId = crypto.randomUUID();
+    const res = await createTicket({
+      subject: `Billing issue ${runId}`,
+      body: "I was double charged this month.",
+      category: "BILLING",
+      assignedToId: agent.id,
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as {
+      ticket: { id: string; category: string; assignedToId: string | null };
+    };
+    createdTicketIds.push(json.ticket.id);
+
+    expect(json.ticket.category).toBe("BILLING");
+    expect(json.ticket.assignedToId).toBe(agent.id);
+  });
+});
+
 describe("PATCH /api/tickets/:id", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    try {
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) {
-        return;
-      }
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterEach(async () => {
-    if (!integrationReady || createdTicketIds.length === 0) {
+    if (createdTicketIds.length === 0) {
       return;
     }
 
@@ -511,16 +543,14 @@ describe("PATCH /api/tickets/:id", () => {
   }
 
   it("updates status, category, and assignee", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const agent = await prisma.user.findFirst({
       where: { email: "agent@example.com", deletedAt: null },
       select: { id: true },
     });
     if (!agent) {
-      return;
+      throw new Error(
+        "Seeded agent@example.com not found — run `bun prisma/seed-test.ts` against helpdesk_test.",
+      );
     }
 
     const runId = crypto.randomUUID();
@@ -555,10 +585,6 @@ describe("PATCH /api/tickets/:id", () => {
   });
 
   it("returns 404 for a missing ticket", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const res = await patchTicket("nonexistent-ticket-id", {
       status: "CLOSED",
     });
@@ -569,66 +595,117 @@ describe("PATCH /api/tickets/:id", () => {
   });
 });
 
+describe("DELETE /api/tickets/:id", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length === 0) {
+      return;
+    }
+
+    await prisma.ticket.deleteMany({
+      where: { id: { in: [...createdTicketIds] } },
+    });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+  });
+
+  async function deleteTicket(id: string) {
+    return fetch(`${baseUrl}/api/tickets/${id}`, {
+      method: "DELETE",
+      headers: { Cookie: authCookie },
+    });
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Auth test", body: "Body", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await fetch(`${baseUrl}/api/tickets/${ticket.id}`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(401);
+  });
+
+  it("deletes an existing ticket and its replies", async () => {
+    const runId = crypto.randomUUID();
+    const ticket = await prisma.ticket.create({
+      data: { subject: `Delete me ${runId}`, body: "Body", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    await prisma.reply.create({
+      data: { ticketId: ticket.id, body: "A reply" },
+    });
+
+    const res = await deleteTicket(ticket.id);
+    expect(res.status).toBe(204);
+
+    const stored = await prisma.ticket.findUnique({
+      where: { id: ticket.id },
+    });
+    expect(stored).toBeNull();
+
+    const remainingReplies = await prisma.reply.findMany({
+      where: { ticketId: ticket.id },
+    });
+    expect(remainingReplies).toHaveLength(0);
+
+    // Already deleted — don't try to delete it again in afterEach.
+    createdTicketIds.length = 0;
+  });
+
+  it("returns 404 for a missing ticket", async () => {
+    const res = await deleteTicket("nonexistent-ticket-id");
+    expect(res.status).toBe(404);
+
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("Ticket not found");
+  });
+});
+
 // ---------------------------------------------------------------------------
 // POST /api/tickets/:id/polish-reply
 // ---------------------------------------------------------------------------
-// The AI SDK is mocked with Bun's mock.module() so no real network calls are
-// made to GitHub Models.  The rest of the test follows the same integration
+// The AI SDK is mocked (see ../test/mockAi.ts) so no real network calls are
+// made to GitHub Models. The rest of the test follows the same integration
 // pattern used above (real Express server, real DB, auth cookie).
 
-import { mock, spyOn } from "bun:test";
-
-// Keep a reference to the stubbed generateText so individual tests can control
-// its return value.  The mock is registered at module evaluation time so that
-// Bun hoists it before the server imports the route.
-let _resolvedText = "Please assist me.";
-
-mock.module("ai", () => ({
-  generateText: async (_opts: unknown) => ({ text: _resolvedText }),
-}));
-
-mock.module("@ai-sdk/openai-compatible", () => ({
-  createOpenAICompatible: () => () => ({}),
-}));
+import { aiMockState, resetAiMockState } from "../test/mockAi.js";
 
 describe("POST /api/tickets/:id/polish-reply", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    try {
-      const { createApp } = await import("../app.js");
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) return;
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const { createApp } = await import("../app.js");
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterEach(async () => {
     // Reset to the default polished text for the next test
-    _resolvedText = "Please assist me.";
+    resetAiMockState();
 
-    if (!integrationReady || createdTicketIds.length === 0) return;
+    if (createdTicketIds.length === 0) return;
 
     await prisma.ticket.deleteMany({
       where: { id: { in: [...createdTicketIds] } },
@@ -649,8 +726,6 @@ describe("POST /api/tickets/:id/polish-reply", () => {
   }
 
   it("returns 401 when not authenticated", async () => {
-    if (!integrationReady) return;
-
     const ticket = await prisma.ticket.create({
       data: { subject: "Auth test", body: "Body", status: "OPEN" },
     });
@@ -670,8 +745,6 @@ describe("POST /api/tickets/:id/polish-reply", () => {
   });
 
   it("returns 404 for a non-existent ticket", async () => {
-    if (!integrationReady) return;
-
     const res = await polishReply("nonexistent-ticket-id", {
       draft: "Help me please.",
     });
@@ -682,8 +755,6 @@ describe("POST /api/tickets/:id/polish-reply", () => {
   });
 
   it("returns 400 when draft is missing from the request body", async () => {
-    if (!integrationReady) return;
-
     const ticket = await prisma.ticket.create({
       data: { subject: "Test subject", body: "Test body", status: "OPEN" },
     });
@@ -697,8 +768,6 @@ describe("POST /api/tickets/:id/polish-reply", () => {
   });
 
   it("returns 400 when draft is blank/whitespace only", async () => {
-    if (!integrationReady) return;
-
     const ticket = await prisma.ticket.create({
       data: { subject: "Test subject", body: "Test body", status: "OPEN" },
     });
@@ -712,9 +781,7 @@ describe("POST /api/tickets/:id/polish-reply", () => {
   });
 
   it("returns 200 with the polished text from the AI model", async () => {
-    if (!integrationReady) return;
-
-    _resolvedText = "Please assist me at your earliest convenience.";
+    aiMockState.polishedText = "Please assist me at your earliest convenience.";
 
     const ticket = await prisma.ticket.create({
       data: {
@@ -734,44 +801,23 @@ describe("POST /api/tickets/:id/polish-reply", () => {
       "Please assist me at your earliest convenience.",
     );
   });
-
 });
 
 describe("GET /api/tickets/stats", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    try {
-      const { createApp } = await import("../app.js");
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) return;
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const { createApp } = await import("../app.js");
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterEach(async () => {
-    if (!integrationReady || createdTicketIds.length === 0) return;
+    if (createdTicketIds.length === 0) return;
 
     await prisma.reply.deleteMany({
       where: { ticketId: { in: [...createdTicketIds] } },
@@ -786,15 +832,24 @@ describe("GET /api/tickets/stats", () => {
     server?.close();
   });
 
-  async function getStats() {
-    return fetch(`${baseUrl}/api/tickets/stats`, {
+  interface DashboardStats {
+    totalTickets: number;
+    openTickets: number;
+    resolvedTickets: number;
+    aiResolvedCount: number;
+    aiResolvedPct: number;
+    chartData: { date: string; count: number }[];
+  }
+
+  async function getStats(): Promise<DashboardStats> {
+    const res = await fetch(`${baseUrl}/api/tickets/stats`, {
       headers: { Cookie: authCookie },
     });
+    expect(res.status).toBe(200);
+    return (await res.json()) as DashboardStats;
   }
 
   it("returns 401 when not authenticated", async () => {
-    if (!integrationReady) return;
-
     const res = await fetch(`${baseUrl}/api/tickets/stats`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
@@ -803,10 +858,12 @@ describe("GET /api/tickets/stats", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 200 with dashboard statistics", async () => {
-    if (!integrationReady) return;
+  it("returns dashboard statistics whose deltas match the fixtures this test creates", async () => {
+    // Capture the baseline first so the assertions below don't assume
+    // anything about pre-existing tickets in the shared test DB — only that
+    // the counts move by exactly the amount these fixtures contribute.
+    const before = await getStats();
 
-    // Create a few tickets with different statuses
     const ticket1 = await prisma.ticket.create({
       data: { subject: "Stats Open", body: "Body", status: "OPEN" },
     });
@@ -827,24 +884,24 @@ describe("GET /api/tickets/stats", () => {
       },
     });
 
-    const res = await getStats();
-    expect(res.status).toBe(200);
+    const after = await getStats();
 
-    const json = (await res.json()) as {
-      totalTickets: number;
-      openTickets: number;
-      resolvedTickets: number;
-      aiResolvedCount: number;
-      aiResolvedPct: number;
-      chartData: { date: string; count: number }[];
-    };
+    // Shape / type assertions — these should always hold regardless of
+    // what's already in the shared DB.
+    expect(typeof after.totalTickets).toBe("number");
+    expect(typeof after.openTickets).toBe("number");
+    expect(typeof after.resolvedTickets).toBe("number");
+    expect(typeof after.aiResolvedCount).toBe("number");
+    expect(after.aiResolvedPct).toBeGreaterThanOrEqual(0);
+    expect(after.aiResolvedPct).toBeLessThanOrEqual(100);
+    expect(after.chartData).toHaveLength(30);
 
-    expect(json.totalTickets).toBeGreaterThanOrEqual(2);
-    expect(json.openTickets).toBeGreaterThanOrEqual(1);
-    expect(json.resolvedTickets).toBeGreaterThanOrEqual(1);
-    expect(json.aiResolvedCount).toBeGreaterThanOrEqual(1);
-    expect(json.aiResolvedPct).toBe(100);
-    expect(json.chartData).toHaveLength(30);
+    // Delta assertions — NEW/PROCESSING tickets must not move totalTickets or
+    // openTickets, exactly one OPEN and one RESOLVED ticket were added, and
+    // exactly one AI-resolved ticket was added.
+    expect(after.totalTickets - before.totalTickets).toBe(2);
+    expect(after.openTickets - before.openTickets).toBe(1);
+    expect(after.resolvedTickets - before.resolvedTickets).toBe(1);
+    expect(after.aiResolvedCount - before.aiResolvedCount).toBe(1);
   });
 });
-

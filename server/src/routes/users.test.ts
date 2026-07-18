@@ -1,39 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
 import { createApp } from "../app.js";
+import { loginAsAgent, startTestServer } from "../test/helpers.js";
 
 describe("GET /api/users/agents", () => {
   let server: Server;
   let baseUrl: string;
   let authCookie = "";
-  let integrationReady = false;
 
   beforeAll(async () => {
-    try {
-      const app = createApp();
-      server = app.listen(0);
-      const address = server.address() as AddressInfo;
-      baseUrl = `http://127.0.0.1:${address.port}`;
-
-      const loginRes = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "agent@example.com",
-          password: "password@123",
-        }),
-      });
-
-      if (!loginRes.ok) {
-        return;
-      }
-
-      authCookie = loginRes.headers.getSetCookie().join("; ");
-      integrationReady = true;
-    } catch {
-      integrationReady = false;
-    }
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
   });
 
   afterAll(() => {
@@ -41,19 +19,11 @@ describe("GET /api/users/agents", () => {
   });
 
   it("returns 401 when unauthenticated", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const res = await fetch(`${baseUrl}/api/users/agents`);
     expect(res.status).toBe(401);
   });
 
   it("returns 200 with agent users for authenticated agent", async () => {
-    if (!integrationReady) {
-      return;
-    }
-
     const res = await fetch(`${baseUrl}/api/users/agents`, {
       headers: { Cookie: authCookie },
     });
