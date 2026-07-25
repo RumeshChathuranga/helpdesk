@@ -1,4 +1,4 @@
-import { type Page, expect } from "@playwright/test";
+import { type APIRequestContext, type Page, expect } from "@playwright/test";
 import { loginAsAgent } from "./auth";
 
 export const E2E_TICKET_SUBJECT_PREFIX = "E2E ticket";
@@ -43,6 +43,48 @@ export async function createTicketViaPage(
 
   const json = (await response.json()) as { ticket: CreatedTicket };
   return json.ticket;
+}
+
+const AGENT_VISIBLE_STATUSES = new Set([
+  "OPEN",
+  "IN_PROGRESS",
+  "RESOLVED",
+  "CLOSED",
+]);
+
+/**
+ * New tickets start as NEW/PROCESSING (hidden from the agent list) until the
+ * process-ticket worker finishes. Poll detail until the ticket is visible.
+ *
+ * Pass `baseUrl` when using a bare APIRequestContext against the E2E API
+ * (e.g. `API_BASE_URL`). Leave it empty when using `page.request`, which goes
+ * through the Vite `/api` proxy with the browser session cookie.
+ */
+export async function waitForTicketAgentVisible(
+  request: APIRequestContext,
+  ticketId: string,
+  {
+    baseUrl = "",
+    timeoutMs = 15_000,
+  }: { baseUrl?: string; timeoutMs?: number } = {},
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  const url = `${baseUrl}/api/tickets/${ticketId}`;
+  while (Date.now() < deadline) {
+    const response = await request.get(url);
+    if (response.ok()) {
+      const json = (await response.json()) as {
+        ticket: { status: string };
+      };
+      if (AGENT_VISIBLE_STATUSES.has(json.ticket.status)) {
+        return;
+      }
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error(
+    `Timed out waiting for ticket ${ticketId} to leave NEW/PROCESSING`,
+  );
 }
 
 /** Updates a ticket through the same /api proxy the browser uses. */

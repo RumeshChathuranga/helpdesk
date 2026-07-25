@@ -3,6 +3,10 @@ import { config } from "dotenv";
 import { resolve } from "path";
 
 export default async function globalTeardown() {
+  // Only wipe the test DB in CI — locally we keep fixtures between runs, and
+  // `prisma migrate reset` is also blocked when Playwright is launched by Cursor.
+  if (!process.env.CI) return;
+
   config({ path: resolve(__dirname, "../server/.env.test") });
 
   const databaseUrl = process.env.DATABASE_URL;

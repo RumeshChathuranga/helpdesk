@@ -5,6 +5,7 @@ import {
   uniqueMessageId,
   type InboundEmailResponse,
 } from "./helpers/inboundEmail";
+import { waitForTicketAgentVisible } from "./helpers/tickets";
 
 test.describe("Inbound email webhook", () => {
   const createdTicketIds: string[] = [];
@@ -71,6 +72,10 @@ test.describe("Inbound email webhook", () => {
     createdTicketIds.push(ticketId);
 
     await loginAgentViaApi(request);
+    // Hidden from the list while NEW/PROCESSING — wait for the worker first.
+    await waitForTicketAgentVisible(request, ticketId, {
+      baseUrl: API_BASE_URL,
+    });
 
     const listRes = await request.get(`${API_BASE_URL}/api/tickets`);
     expect(listRes.ok()).toBeTruthy();

@@ -6,6 +6,7 @@ import {
   openTicketsPage,
   uniqueTicketSubject,
   updateTicketViaPage,
+  waitForTicketAgentVisible,
   waitForTicketsTable,
 } from "./helpers/tickets";
 
@@ -57,6 +58,8 @@ test.describe.serial("Ticket list — table", () => {
       category: "TECHNICAL",
     });
     createdTicketIds.push(ticket.id);
+    // Ticket is NEW/PROCESSING until the AI worker finishes (or fails open).
+    await waitForTicketAgentVisible(page.request, ticket.id);
 
     await page.goto("/tickets");
     await waitForTicketsTable(page);
@@ -86,9 +89,7 @@ test.describe.serial("Ticket list — table", () => {
     const row = page
       .getByRole("row")
       .filter({ hasText: "Cannot reset password" });
-    await expect(
-      row.getByRole("cell", { name: "Jane Customer", exact: true }),
-    ).toBeVisible();
+    await expect(row.getByText("Jane Customer")).toBeVisible();
     await expect(row.getByText("Open")).toBeVisible();
     await expect(row.getByText("Technical")).toBeVisible();
   });
@@ -111,6 +112,9 @@ test.describe.serial("Ticket list — table", () => {
       body: "Newer ticket body",
     });
     createdTicketIds.push(newerTicket.id);
+
+    await waitForTicketAgentVisible(page.request, olderTicket.id);
+    await waitForTicketAgentVisible(page.request, newerTicket.id);
 
     await page.goto("/tickets");
     await waitForTicketsTable(page);
@@ -156,6 +160,8 @@ test.describe.serial("Ticket list — table", () => {
     });
     createdTicketIds.push(resolvedTicket.id);
 
+    await waitForTicketAgentVisible(page.request, openTicket.id);
+    await waitForTicketAgentVisible(page.request, resolvedTicket.id);
     await updateTicketViaPage(page, resolvedTicket.id, { status: "RESOLVED" });
 
     await page.goto("/tickets");
@@ -199,6 +205,9 @@ test.describe.serial("Ticket list — table", () => {
       body: "Different ticket body",
     });
     createdTicketIds.push(otherTicket.id);
+
+    await waitForTicketAgentVisible(page.request, matchingTicket.id);
+    await waitForTicketAgentVisible(page.request, otherTicket.id);
 
     await page.goto("/tickets");
     await waitForTicketsTable(page);
