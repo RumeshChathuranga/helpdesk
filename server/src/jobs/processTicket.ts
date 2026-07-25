@@ -3,11 +3,11 @@ import { generateText } from "ai";
 import { readFile } from "fs/promises";
 import { resolve } from "path";
 import { z } from "zod";
-import { pipeline } from "@huggingface/transformers";
 import { FIELD_LIMITS, ticketCategorySchema, type TicketCategory } from "core";
 import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
+import { embedText } from "../lib/embeddings.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -221,10 +221,7 @@ export async function runProcessTicket({
     const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
 
     // Generate embedding
-    const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2");
-    const output = await extractor(textToEmbed, { pooling: "mean", normalize: true });
-    const embeddingArray = Array.from(output.tolist()[0] as number[]);
-    const vectorString = `[${embeddingArray.join(',')}]`;
+    const { vectorString } = await embedText(textToEmbed);
 
     // Retrieve similar chunks
     const chunks = await prisma.$queryRaw<{ text: string, similarity: number }[]>`

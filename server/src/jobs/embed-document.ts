@@ -1,7 +1,7 @@
-import { pipeline } from "@huggingface/transformers";
 import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
+import { embedText } from "../lib/embeddings.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -33,21 +33,9 @@ export async function registerEmbedDocumentWorker(): Promise<void> {
       console.info(`[embed-document] Processing job ${job.id}`);
 
       try {
-        // Load the feature extraction pipeline. 
-        // This downloads weights on first run and caches them locally.
-        const extractor = await pipeline(
-          "feature-extraction",
-          "Xenova/all-MiniLM-L6-v2"
-        );
-
-        // Generate embedding tensor
-        const output = await extractor(text, { pooling: "mean", normalize: true });
-        
-        // Convert to standard JS array
-        const embeddingArray = Array.from(output.tolist()[0] as number[]);
-
-        // Serialize array to a Postgres vector array string format: '[val1, val2, ...]'
-        const vectorString = `[${embeddingArray.join(',')}]`;
+        // Embedding weights download on first run and are cached locally; the
+        // pipeline instance itself is cached process-wide in lib/embeddings.ts.
+        const { vectorString } = await embedText(text);
 
         // Save to KnowledgeChunk using raw query due to Unsupported("vector(384)")
         await prisma.$executeRaw`
