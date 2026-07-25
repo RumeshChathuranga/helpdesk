@@ -1,8 +1,7 @@
 import { useNavigate } from "react-router";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FIELD_LIMITS } from "core";
-import { z } from "zod";
+import { FIELD_LIMITS, loginBodySchema, type LoginBody } from "core";
 import { authClient } from "@/lib/auth-client";
 import {
   Form,
@@ -23,34 +22,15 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-const loginSchema = z.object({
-  email: z
-    .string()
-    .email("Enter a valid email")
-    .max(
-      FIELD_LIMITS.email,
-      `Email must be at most ${FIELD_LIMITS.email} characters`,
-    ),
-  password: z
-    .string()
-    .min(6, "Password must be at least 6 characters")
-    .max(
-      FIELD_LIMITS.password,
-      `Password must be at most ${FIELD_LIMITS.password} characters`,
-    ),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
-
 export function LoginPage() {
   const navigate = useNavigate();
 
-  const form = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<LoginBody>({
+    resolver: zodResolver(loginBodySchema),
     defaultValues: { email: "", password: "" },
   });
 
-  async function onSubmit(data: LoginFormValues) {
+  async function onSubmit(data: LoginBody) {
     const { error: authError } = await authClient.signIn.email({
       email: data.email,
       password: data.password,

@@ -43,5 +43,9 @@ export {
   createReplyBodySchema,
   type CreateReplyBody,
 } from "./createReply.js";
+export {
+  loginBodySchema,
+  type LoginBody,
+} from "./login.js";
 export { FIELD_LIMITS } from "./fieldLimits.js";
 export { sanitizePlainText } from "./sanitizePlainText.js";
