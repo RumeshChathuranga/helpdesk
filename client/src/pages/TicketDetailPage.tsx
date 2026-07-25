@@ -1,4 +1,3 @@
-import { sanitizePlainText } from "core";
 import { isAxiosError } from "axios";
 import { ArrowLeft, RotateCcw, Sparkles } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
@@ -36,7 +35,7 @@ function RequesterInfo({
   if (fromName && fromEmail) {
     return (
       <div className="font-mono text-xs">
-        <div className="font-semibold text-foreground">{sanitizePlainText(fromName)}</div>
+        <div className="font-semibold text-foreground">{fromName}</div>
         <div className="text-[10px] text-muted-foreground mt-0.5">{fromEmail}</div>
       </div>
     );
@@ -44,7 +43,7 @@ function RequesterInfo({
 
   return (
     <span className="text-foreground font-mono text-xs">
-      {sanitizePlainText(fromName ?? fromEmail ?? "")}
+      {fromName ?? fromEmail ?? ""}
     </span>
   );
 }
@@ -68,7 +67,7 @@ function ReplyItem({ reply }: { reply: TicketReply }) {
         )}
       </div>
       <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
-        {sanitizePlainText(reply.body)}
+        {reply.body}
       </p>
     </article>
   );
@@ -107,7 +106,7 @@ export function TicketDetailPage() {
   const {
     data: summary,
     isFetching: isSummarizing,
-    isSuccess: hasSummary,
+    isSuccess: queryHasSummary,
     isError: hasSummaryError,
     error: summaryError,
     refetch: summarize,
@@ -115,6 +114,9 @@ export function TicketDetailPage() {
 
   const isNotFound =
     isError && isAxiosError(error) && error.response?.status === 404;
+
+  const displaySummary = summary ?? ticket?.aiSummary ?? null;
+  const hasSummary = queryHasSummary || Boolean(ticket?.aiSummary);
 
   return (
     <div>
@@ -152,7 +154,7 @@ export function TicketDetailPage() {
           <div className="space-y-6 min-w-0">
             <div className="bg-card/30 border border-border/80 rounded-2xl p-6">
               <h1 className="text-2xl font-bold text-foreground tracking-tight">
-                {sanitizePlainText(ticket.subject)}
+                {ticket.subject}
               </h1>
               <div className="mt-4 flex flex-wrap items-center gap-2.5">
                 <span className={STATUS_BADGE[ticket.status]}>
@@ -265,7 +267,7 @@ export function TicketDetailPage() {
                 </p>
               )}
 
-              {isSummarizing && !summary && (
+              {isSummarizing && !displaySummary && (
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-full bg-primary/10" />
                   <Skeleton className="h-4 w-5/6 bg-primary/10" />
@@ -273,9 +275,9 @@ export function TicketDetailPage() {
                 </div>
               )}
 
-              {hasSummary && summary && (
+              {hasSummary && displaySummary && (
                 <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
-                  {sanitizePlainText(summary)}
+                  {displaySummary}
                 </p>
               )}
 
@@ -291,7 +293,7 @@ export function TicketDetailPage() {
                 Original message
               </h2>
               <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
-                {sanitizePlainText(ticket.body)}
+                {ticket.body}
               </p>
             </div>
 

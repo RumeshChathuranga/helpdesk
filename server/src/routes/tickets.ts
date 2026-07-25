@@ -5,6 +5,7 @@ import {
   DEFAULT_TICKET_PAGE_SIZE,
   FIELD_LIMITS,
   listTicketsQuerySchema,
+  sanitizePlainText,
   ticketListSortToOrderBy,
   updateTicketBodySchema,
   type TicketStatus,
@@ -315,7 +316,14 @@ Be concise and factual. Use plain text bullet points starting with "•".`,
     prompt,
   });
 
-  res.json({ summary: text });
+  const summary = sanitizePlainText(text);
+
+  await prisma.ticket.update({
+    where: { id: ticketId },
+    data: { aiSummary: summary },
+  });
+
+  res.json({ summary });
 });
 
 ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), async (req, res) => {
