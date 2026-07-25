@@ -19,6 +19,7 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { enqueueProcessTicket } from "../jobs/processTicket.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
+import { AI_AGENT_EMAIL, SUPPORT_EMAIL } from "../config.js";
 
 function parseRouteId(
   id: string | string[] | undefined,
@@ -212,7 +213,7 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
 
   const session = res.locals.agentSession!;
   const agentName = session.user.name ?? "Support Team";
-  const agentEmail = `support@example.com`;
+  const agentEmail = SUPPORT_EMAIL;
 
   // Determine customer name for personalised greeting
   const customerName = ticket.fromName?.trim()
@@ -339,9 +340,13 @@ ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), asyn
 
   let finalAssignedToId = assignedToId;
   if (!finalAssignedToId) {
-    const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+    const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
     if (aiAgent) {
       finalAssignedToId = aiAgent.id;
+    } else {
+      console.warn(
+        `[tickets] AI agent user not found for email ${AI_AGENT_EMAIL} — new ticket will be created unassigned`,
+      );
     }
   }
 

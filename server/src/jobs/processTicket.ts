@@ -8,6 +8,7 @@ import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
 import { embedText } from "../lib/embeddings.js";
+import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -115,7 +116,12 @@ export async function registerProcessTicketWorker(): Promise<void> {
 
       // Find AI agent up front so the catch-all recovery path below can use it
       // even if failure happens before the try block's own lookup runs.
-      const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+      const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
+      if (!aiAgent) {
+        console.warn(
+          `[process-ticket] AI agent user not found for email ${AI_AGENT_EMAIL} — ticket will be processed without an AI assignee`,
+        );
+      }
 
       try {
         const githubToken = process.env.GITHUB_MODELS_TOKEN;
@@ -253,7 +259,7 @@ export async function runProcessTicket({
   try {
     const { text: resolveText } = await generateText({
       model: githubModels("o4-mini"),
-      system: `You are a helpful customer support AI for "Code with Mosh". Your job is to resolve support tickets using the knowledge base provided below.
+      system: `You are a helpful customer support AI for "${BRAND_NAME}". Your job is to resolve support tickets using the knowledge base provided below.
 
 ## Knowledge Base
 ${knowledgeBase}

@@ -3,6 +3,7 @@ import { inboundEmailSchema } from "core";
 import type { ZodError } from "zod";
 import { prisma } from "../prisma.js";
 import { enqueueProcessTicket } from "../../jobs/processTicket.js";
+import { AI_AGENT_EMAIL } from "../../config.js";
 
 export type InboundEmailResult = {
   ticketId: string;
@@ -61,7 +62,12 @@ export async function createFromInboundEmail(
     }
   }
 
-  const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+  const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
+  if (!aiAgent) {
+    console.warn(
+      `[inbound-email] AI agent user not found for email ${AI_AGENT_EMAIL} — new ticket will be created unassigned`,
+    );
+  }
 
   const ticket = await prisma.ticket.create({
     data: {

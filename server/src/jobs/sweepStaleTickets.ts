@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
+import { AI_AGENT_EMAIL } from "../config.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -62,7 +63,12 @@ export async function sweepStaleTickets(): Promise<void> {
 
   const staleIds = staleTickets.map((t) => t.id);
 
-  const aiAgent = await prisma.user.findUnique({ where: { email: "ai@example.com" } });
+  const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
+  if (!aiAgent) {
+    console.warn(
+      `[sweep-stale-tickets] AI agent user not found for email ${AI_AGENT_EMAIL} — skipping AI-assignee unassign step`,
+    );
+  }
   const aiAssignedIds = aiAgent
     ? staleTickets.filter((t) => t.assignedToId === aiAgent.id).map((t) => t.id)
     : [];

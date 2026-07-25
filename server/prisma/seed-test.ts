@@ -1,6 +1,7 @@
 import { Role } from "@prisma/client";
 import { signUpEmailInternal } from "../src/lib/internalEmailSignUp.js";
 import { prisma } from "../src/lib/prisma.js";
+import { AI_AGENT_EMAIL } from "../src/config.js";
 
 async function ensureUser(
   email: string,
@@ -84,7 +85,7 @@ async function seedSampleTickets() {
 }
 
 async function ensureAiAgent() {
-  const email = "ai@example.com";
+  const email = AI_AGENT_EMAIL;
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     await prisma.user.update({
