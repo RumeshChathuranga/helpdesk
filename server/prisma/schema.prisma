@@ -93,7 +93,6 @@ model Ticket {
   body              String
   status            TicketStatus   @default(NEW)
   category          TicketCategory @default(OTHER)
-  priority          Int            @default(0)
   fromEmail         String?
   fromName          String?
   externalMessageId String?        @unique

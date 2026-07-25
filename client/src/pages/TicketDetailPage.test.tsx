@@ -30,7 +30,6 @@ const detailTicket = {
   subject: "Cannot reset password",
   status: "OPEN" as const,
   category: "TECHNICAL" as const,
-  priority: 0,
   fromEmail: "jane.customer@gmail.com",
   fromName: "Jane Customer",
   assignedToId: null,

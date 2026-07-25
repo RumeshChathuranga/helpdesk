@@ -17,7 +17,6 @@ export type TicketListItem = {
   subject: string;
   status: TicketStatus;
   category: TicketCategory;
-  priority: number;
   fromEmail: string | null;
   fromName: string | null;
   assignedToId: string | null;

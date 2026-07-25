@@ -60,7 +60,6 @@ const ticketListSelect = {
   subject: true,
   status: true,
   category: true,
-  priority: true,
   fromEmail: true,
   fromName: true,
   assignedToId: true,
