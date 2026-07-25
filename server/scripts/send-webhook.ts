@@ -3,8 +3,10 @@
 async function run() {
   const url = "http://localhost:3000/api/webhooks/inbound-email";
   
-  // Set the secret for development/testing if it's not set in .env
-  const secret = process.env.INBOUND_WEBHOOK_SECRET || "dev-webhook-secret";
+  // Set the secret for development/testing if it's not set in .env.
+  // At least 32 characters, or the endpoint answers 503.
+  const secret =
+    process.env.INBOUND_WEBHOOK_SECRET || "dev-inbound-webhook-secret-32chars";
 
   const payload = {
     fromEmail: "customer@example.com",

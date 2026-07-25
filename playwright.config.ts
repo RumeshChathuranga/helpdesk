@@ -46,7 +46,7 @@ export default defineConfig({
         BETTER_AUTH_URL: E2E_API_URL,
         CLIENT_URL: process.env.CLIENT_URL!,
         INBOUND_WEBHOOK_SECRET:
-          process.env.INBOUND_WEBHOOK_SECRET ?? "test-inbound-webhook-secret",
+          process.env.INBOUND_WEBHOOK_SECRET ?? "test-inbound-webhook-secret-32chars",
         NODE_ENV: "test",
         PORT: E2E_API_PORT,
       },

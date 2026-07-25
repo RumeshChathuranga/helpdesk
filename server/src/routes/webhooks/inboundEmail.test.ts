@@ -13,7 +13,9 @@ import { prisma } from "../../lib/prisma.js";
 
 import { startBoss, boss } from "../../lib/boss.js";
 
-const WEBHOOK_SECRET = "test-inbound-webhook-secret";
+// Must be at least 32 chars — shorter secrets are treated as unconfigured
+// by verifyInboundWebhookSecret and answer 503.
+const WEBHOOK_SECRET = "test-inbound-webhook-secret-32chars";
 
 let server: Server;
 let baseUrl: string;
@@ -83,6 +85,24 @@ describe("POST /api/webhooks/inbound-email", () => {
     );
 
     expect(res.status).toBe(401);
+  });
+
+  it("returns 503 when the configured secret is too short to be safe", async () => {
+    process.env.INBOUND_WEBHOOK_SECRET = "too-short";
+    try {
+      const res = await postInboundEmail(
+        {
+          fromEmail: "student@example.com",
+          subject: "Help",
+          body: "I need help",
+        },
+        "too-short",
+      );
+
+      expect(res.status).toBe(503);
+    } finally {
+      process.env.INBOUND_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    }
   });
 
   it("creates a ticket from a normalized inbound email payload", async () => {

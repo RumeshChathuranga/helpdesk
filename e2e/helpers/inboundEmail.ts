@@ -2,7 +2,7 @@ import { type APIRequestContext } from "@playwright/test";
 import { API_BASE_URL } from "./auth";
 
 export const INBOUND_WEBHOOK_SECRET =
-  process.env.INBOUND_WEBHOOK_SECRET ?? "test-inbound-webhook-secret";
+  process.env.INBOUND_WEBHOOK_SECRET ?? "test-inbound-webhook-secret-32chars";
 
 export function uniqueMessageId(prefix = "e2e"): string {
   return `<${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}@mail>`;
