@@ -132,6 +132,10 @@ usersRouter.patch("/:id", requireAdmin, validateBody(updateUserBodySchema), asyn
         where: { id: credentialAccount.id },
         data: { password: hashed },
       }),
+      // A password reset must invalidate every existing session for the user,
+      // including an attacker's — otherwise a stolen cookie survives the very
+      // remediation meant to kill it.
+      prisma.session.deleteMany({ where: { userId: id } }),
     ]);
   } else {
     await prisma.user.update({
