@@ -14,7 +14,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 
 ### AI-Powered Capabilities (Powered by GitHub Models & AI SDK)
 - **Intelligent Ticket Classification:** Incoming support tickets are automatically analyzed and categorized (e.g., Billing, Technical, Bug, Feature Request) upon creation via background jobs, eliminating manual triage.
-- **Retrieval-Augmented Generation (RAG):** The AI autonomously resolves tickets using a highly optimized, local RAG pipeline. Incoming tickets are converted into vector embeddings via `transformers.js` (`Xenova/all-MiniLM-L6-v2`) and semantically searched against a `pgvector` database to instantly inject the most relevant Knowledge Base context. If a clear answer is found, it sends a reply and resolves the ticket instantly.
+- **Retrieval-Augmented Generation (RAG):** The AI autonomously resolves tickets using a highly optimized, local RAG pipeline. Incoming tickets are converted into vector embeddings via `transformers.js` (`Xenova/all-MiniLM-L6-v2`) and semantically searched against a `pgvector` database to instantly inject the most relevant Knowledge Base context. If a clear answer is found, it posts a reply on the ticket and resolves it instantly. (Outbound email delivery is not yet implemented — the reply is recorded on the ticket, not sent to the customer's inbox.)
 - **Smart Escalation:** The AI safely detects edge cases—such as legal threats, chargebacks, out-of-policy refund requests, or complex technical issues—and immediately escalates them to human agents.
 - **Agent Draft Polishing:** Agents can write quick, rough drafts, and the AI will instantly refine the text to ensure professional grammar, clarity, empathy, and consistent brand formatting.
 - **Conversation Summarization:** For lengthy ticket threads, the AI generates a concise, 3-5 bullet point summary highlighting the core issue, actions taken, and next steps, providing agents with instant context.
@@ -25,7 +25,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 - **Knowledge Base UI:** Dedicated admin interface to seamlessly add, manage, and delete vector-embedded Knowledge Base snippets directly from the UI.
 - **Inbound Email Webhooks:** Secure webhook endpoints configured to parse raw inbound email payloads directly into structured support tickets.
 - **Background Job Processing:** Robust asynchronous job queue (using `pg-boss`) to handle AI classification, embedding generation, and auto-reply tasks reliably in the background without blocking the main API thread.
-- **Monorepo Architecture:** Clean codebase separation using Turborepo/npm workspaces to share types and validation schemas across the client and server.
+- **Monorepo Architecture:** Clean codebase separation using Bun workspaces (`packages/core`) to share types and validation schemas across the client and server.
 
 ## Tech Stack
 
@@ -35,7 +35,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 - React Router
 
 **Backend:**
-- Node.js & Express (TypeScript)
+- Bun & Express (TypeScript)
 - Prisma (ORM)
 - pg-boss (Background Jobs & Message Queuing)
 
@@ -72,11 +72,13 @@ This experience highlighted a clear opportunity for optimization. If an issue is
    ```
 
 3. **Environment Setup**
-   Copy the example environment file and configure your variables:
+   Copy the example environment files and configure your variables:
    ```bash
-   cp .env.example .env
+   cp server/.env.example server/.env
+   cp client/.env.example client/.env
    ```
-   *Make sure to add your `DATABASE_URL` and `GITHUB_MODELS_TOKEN`.*
+   *Make sure to add your `DATABASE_URL` and `GITHUB_MODELS_TOKEN` in `server/.env`.*
+   *(The root `.env.example` is only used for the Docker Compose setup below.)*
 
 4. **Database Setup**
    Deploy the database schema and seed the initial data (including the AI agent):
@@ -91,6 +93,17 @@ This experience highlighted a clear opportunity for optimization. If an issue is
    ```bash
    bun run dev
    ```
+   The API listens on `http://localhost:3000`; Vite serves the client on `http://localhost:5173` and proxies `/api` requests to the API.
+
+## Testing
+
+```bash
+bun run test:client   # Vitest — client unit tests
+bun run test:server   # Bun test — server route tests (needs the test DB, see below)
+bun run test:e2e      # Playwright end-to-end tests
+```
+
+Server and e2e tests run against a separate Postgres database. Configure `server/.env.test` (see `server/.env.test.example`), then run `bun run db:test:setup` once to apply migrations before `bun run test:server` or `bun run test:e2e`.
 
 ## Docker Deployment
 
@@ -99,3 +112,5 @@ To spin up the entire stack (Database and Application) locally using Docker Comp
 ```bash
 docker compose up --build -d
 ```
+
+The app is served on `http://localhost:3000`.
