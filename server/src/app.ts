@@ -15,6 +15,9 @@ export function createApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
+  // One proxy hop (Railway) sits in front of the app; without this every client
+  // shares a single rate-limit bucket keyed on the proxy's IP.
+  app.set("trust proxy", 1);
   app.use(helmet());
 
   app.use(
