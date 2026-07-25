@@ -1,3 +1,4 @@
+import { AGENT_VISIBLE_STATUSES } from "core";
 import { isAxiosError } from "axios";
 import { ArrowLeft, RotateCcw, Sparkles } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
@@ -117,6 +118,10 @@ export function TicketDetailPage() {
 
   const displaySummary = summary ?? ticket?.aiSummary ?? null;
   const hasSummary = queryHasSummary || Boolean(ticket?.aiSummary);
+
+  const isHiddenStatus = Boolean(
+    ticket && !(AGENT_VISIBLE_STATUSES as readonly string[]).includes(ticket.status),
+  );
 
   return (
     <div>
@@ -316,7 +321,16 @@ export function TicketDetailPage() {
           </div>
 
           <aside className="mt-6 lg:mt-0 lg:sticky lg:top-6">
-            <EditTicketForm ticket={ticket} />
+            {isHiddenStatus ? (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
+                <p className="font-semibold mb-1">Still processing</p>
+                <p className="text-amber-300/80">
+                  This ticket is still being processed by AI and can&rsquo;t be edited yet.
+                </p>
+              </div>
+            ) : (
+              <EditTicketForm ticket={ticket} />
+            )}
           </aside>
         </div>
       )}

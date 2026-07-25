@@ -132,6 +132,10 @@ ticketsRouter.get("/stats", requireAgent, async (req, res) => {
   res.json(stats);
 });
 
+// Unlike GET /, this intentionally does NOT filter out NEW/PROCESSING —
+// agents may land on a ticket via direct link while it's still being AI-processed;
+// the client renders those as read-only (see the EditTicketForm gating in
+// TicketDetailPage).
 ticketsRouter.get("/:id", requireAgent, async (req, res) => {
   const id = parseRouteId(req.params.id);
   if (!id) {
