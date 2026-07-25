@@ -29,11 +29,11 @@
     "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --schema server/prisma/schema.prisma"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2",
-    "concurrently": "^9.2.1",
-    "dotenv": "^17.3.1"
+    "@playwright/test": "^1.62.0",
+    "concurrently": "^9.2.4",
+    "dotenv": "^17.4.2"
   },
   "dependencies": {
-    "express-rate-limit": "^8.3.1"
+    "express-rate-limit": "^8.6.0"
   }
 }
