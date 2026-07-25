@@ -1,7 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
-import { readFile } from "fs/promises";
-import { resolve } from "path";
 import { z } from "zod";
 import { FIELD_LIMITS, ticketCategorySchema, type TicketCategory } from "core";
 import type { Job } from "pg-boss";
@@ -222,7 +220,7 @@ export async function runProcessTicket({
   );
 
   // ── Step 2: Attempt KB resolution using RAG ────────────────────────────────
-  let knowledgeBase = "";
+  let knowledgeBase: string;
   try {
     const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
 

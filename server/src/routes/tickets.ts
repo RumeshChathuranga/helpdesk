@@ -2,12 +2,12 @@ import {
   createReplyBodySchema,
   createTicketBodySchema,
   DEFAULT_TICKET_LIST_SORT,
-  DEFAULT_TICKET_PAGE_SIZE,
   FIELD_LIMITS,
   listTicketsQuerySchema,
   sanitizePlainText,
   ticketListSortToOrderBy,
   updateTicketBodySchema,
+  type ListTicketsQuery,
   type TicketStatus,
   AGENT_VISIBLE_STATUSES,
 } from "core";
@@ -89,7 +89,8 @@ function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
 }
 
 ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), async (req, res) => {
-  const { status, category, sort, search, page, pageSize } = req.query as any;
+  const { status, category, sort, search, page, pageSize } =
+    req.query as unknown as ListTicketsQuery;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
   // Silently ignore requests for hidden statuses (NEW/PROCESSING are AI-internal states).
@@ -120,7 +121,7 @@ ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), asyn
 });
 
 ticketsRouter.get("/stats", requireAgent, async (req, res) => {
-  const result = await prisma.$queryRaw<[{ get_dashboard_stats: any }]>`
+  const result = await prisma.$queryRaw<[{ get_dashboard_stats: unknown }]>`
     SELECT get_dashboard_stats();
   `;
   const stats = result[0]?.get_dashboard_stats;

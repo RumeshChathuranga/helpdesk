@@ -4,7 +4,7 @@ async function run() {
   console.log("Starting pipeline download...");
   try {
     const extractor = await pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", {
-      progress_callback: (info: any) => {
+      progress_callback: (info: { status: string; file?: string; progress?: number }) => {
         if (info.status === 'progress') {
           process.stdout.write(`\rDownloading ${info.file}: ${Math.round(info.progress)}%`);
         } else {

@@ -12,7 +12,8 @@
     "dev:client": "bun run --filter client dev",
     "start": "bun run --filter server start",
     "build": "bun run --filter '*' build",
-    "lint": "bun run --filter '*' lint",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
     "db:migrate:deploy": "bun run --filter server db:migrate:deploy",
     "db:studio": "bun run --filter server db:studio",
     "db:seed": "bun run --filter server db:seed",
@@ -29,7 +30,12 @@
     "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --schema server/prisma/schema.prisma"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.0",
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
+    "typescript-eslint": "^8.65.0"
   }
 }
