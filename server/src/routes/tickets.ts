@@ -3,6 +3,7 @@ import {
   createTicketBodySchema,
   DEFAULT_TICKET_LIST_SORT,
   DEFAULT_TICKET_PAGE_SIZE,
+  FIELD_LIMITS,
   listTicketsQuerySchema,
   ticketListSortToOrderBy,
   updateTicketBodySchema,
@@ -10,6 +11,7 @@ import {
   AGENT_VISIBLE_STATUSES,
 } from "core";
 import { Router, type IRouter, type Response } from "express";
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
@@ -175,15 +177,22 @@ ticketsRouter.post("/:id/replies", requireAgent, validateBody(createReplyBodySch
   res.status(201).json({ reply });
 });
 
-ticketsRouter.post("/:id/polish-reply", requireAgent, async (req, res) => {
+const polishReplyBodySchema = z.object({
+  draft: z
+    .string({ error: "draft must be a non-empty string" })
+    .trim()
+    .min(1, "draft must be a non-empty string")
+    .max(
+      FIELD_LIMITS.body,
+      `Draft must be at most ${FIELD_LIMITS.body} characters`,
+    ),
+});
+
+ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBodySchema), async (req, res) => {
   const ticketId = await requireTicketIdOrRespond(res, req.params.id);
   if (!ticketId) return;
 
-  const { draft } = req.body as { draft?: unknown };
-  if (typeof draft !== "string" || !draft.trim()) {
-    res.status(400).json({ error: "draft must be a non-empty string" });
-    return;
-  }
+  const { draft } = req.body;
 
   const ticket = await prisma.ticket.findUnique({
     where: { id: ticketId },

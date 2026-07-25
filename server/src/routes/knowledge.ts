@@ -1,3 +1,4 @@
+import { FIELD_LIMITS } from "core";
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
@@ -20,7 +21,13 @@ knowledgeRouter.get("/", requireAdmin, async (_req, res) => {
 });
 
 const createKnowledgeSchema = z.object({
-  text: z.string().min(1, "Text is required"),
+  text: z
+    .string()
+    .min(1, "Text is required")
+    .max(
+      FIELD_LIMITS.body,
+      `Text must be at most ${FIELD_LIMITS.body} characters`,
+    ),
 });
 
 knowledgeRouter.post(

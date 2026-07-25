@@ -6,7 +6,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://user:password@db:5432/helpdesk?schema=public
-      - BETTER_AUTH_SECRET=secret-for-development-only
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
       - BETTER_AUTH_URL=http://localhost:3000
       - CLIENT_URL=http://localhost:3000
     depends_on:

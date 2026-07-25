@@ -28,6 +28,14 @@ export async function requireAgent(
     return;
   }
 
+  // Deleting a user revokes their sessions, so this should be unreachable —
+  // it's a second line of defence against a soft-deleted account still holding
+  // a valid cookie.
+  if (session.user.deletedAt != null) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
   if (session.user.role !== "ADMIN" && session.user.role !== "AGENT") {
     res.status(403).json({ error: "Forbidden" });
     return;
