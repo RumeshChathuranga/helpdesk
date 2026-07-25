@@ -11,6 +11,26 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
+/**
+ * Derives the Sentry ingest origin for the CSP connect-src directive. Client
+ * and server DSNs are read from separate env files (VITE_SENTRY_DSN isn't
+ * visible to the server process), but both normally belong to the same
+ * Sentry org and therefore share a host — so the server's own SENTRY_DSN is
+ * used unless SENTRY_INGEST_ORIGIN explicitly overrides it.
+ */
+function getSentryIngestOrigin(): string | undefined {
+  const dsn = process.env.SENTRY_INGEST_ORIGIN || process.env.SENTRY_DSN;
+  if (!dsn) return undefined;
+  try {
+    return new URL(dsn).origin;
+  } catch {
+    console.warn(
+      "[app] SENTRY_DSN/SENTRY_INGEST_ORIGIN is not a valid URL; CSP connect-src left unmodified"
+    );
+    return undefined;
+  }
+}
+
 export function createApp(): Express {
   const app = express();
 
@@ -18,7 +38,18 @@ export function createApp(): Express {
   // One proxy hop (Railway) sits in front of the app; without this every client
   // shares a single rate-limit bucket keyed on the proxy's IP.
   app.set("trust proxy", 1);
-  app.use(helmet());
+
+  const sentryIngestOrigin = getSentryIngestOrigin();
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+          "connect-src": ["'self'", ...(sentryIngestOrigin ? [sentryIngestOrigin] : [])],
+        },
+      },
+    })
+  );
 
   app.use(
     cors({
