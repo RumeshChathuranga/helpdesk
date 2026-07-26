@@ -103,7 +103,9 @@ bun run test:server   # Bun test — server route tests (needs the test DB, see 
 bun run test:e2e      # Playwright end-to-end tests
 ```
 
-Server and e2e tests run against a separate Postgres database. Configure `server/.env.test` (see `server/.env.test.example`), then run `bun run db:test:setup` once to apply migrations before `bun run test:server` or `bun run test:e2e`.
+Server and e2e tests run against a separate Postgres database. Configure `server/.env.test` (see `server/.env.test.example`), then run `bun run db:test:setup` once to apply migrations and `bun run db:test:seed` to create the fixture users (admin, agent, AI) and sample tickets before `bun run test:server` or `bun run test:e2e`.
+
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, `test:client`, `test:server` against a `pgvector/pgvector:pg15` service container, and `bun audit` on every push/PR.
 
 ## Docker Deployment
 

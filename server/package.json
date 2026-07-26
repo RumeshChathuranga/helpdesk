@@ -7,6 +7,7 @@
     "postinstall": "bunx prisma generate",
     "dev": "bun --watch src/index.ts",
     "build": "echo 'Server build skipped, using bun runner directly'",
+    "typecheck": "tsc --noEmit",
     "start": "bun src/index.ts",
     "db:generate": "bunx prisma generate",
     "db:migrate": "bunx prisma migrate dev",
@@ -15,6 +16,7 @@
     "db:studio": "bunx prisma studio",
     "db:seed": "bun prisma/seed.ts",
     "db:seed:ai": "bun prisma/seed-ai.ts",
+    "db:seed:test": "bun --env-file .env.test prisma/seed-test.ts",
     "test:unit": "bun test src/routes",
     "test:server": "bun --env-file .env.test src/index.ts"
   },

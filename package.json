@@ -13,6 +13,7 @@
     "start": "bun run --filter server start",
     "build": "bun run --filter '*' build",
     "lint": "eslint . --max-warnings 0",
+    "typecheck": "bun run --filter '*' typecheck",
     "lint:fix": "eslint . --fix",
     "db:migrate:deploy": "bun run --filter server db:migrate:deploy",
     "db:studio": "bun run --filter server db:studio",
@@ -27,6 +28,7 @@
     "test:e2e:headed": "bunx playwright test --headed",
     "test:e2e:report": "bunx playwright show-report",
     "db:test:setup": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate deploy --schema server/prisma/schema.prisma",
+    "db:test:seed": "bun run --filter server db:seed:test",
     "db:test:reset": "DATABASE_URL=$(grep DATABASE_URL server/.env.test | cut -d '\"' -f2) bunx prisma migrate reset --force --schema server/prisma/schema.prisma"
   },
   "devDependencies": {

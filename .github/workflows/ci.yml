@@ -1,0 +1,195 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# One CI run per branch/PR — a new push cancels the previous, still-running one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Keep in sync with the Bun version used locally / in the Dockerfile.
+  BUN_VERSION: "1.3.5"
+  # `prisma generate` loads server/prisma.config.ts, which reads DATABASE_URL.
+  # Jobs that don't touch a database only need it to be present, not reachable.
+  PLACEHOLDER_DATABASE_URL: "postgresql://user:password@localhost:5432/placeholder"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: ESLint (client + server + core)
+        run: bun run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      # The server imports generated Prisma types, so tsc needs the client first.
+      - name: Generate Prisma client
+        run: bun run --filter server db:generate
+        env:
+          DATABASE_URL: ${{ env.PLACEHOLDER_DATABASE_URL }}
+
+      - name: tsc --noEmit (client + server + core)
+        run: bun run typecheck
+
+  test-client:
+    name: Client tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Vitest
+        run: bun run test:client
+
+  test-server:
+    name: Server tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        # pgvector build of Postgres — the KnowledgeChunk embedding column is
+        # `vector(384)` and migration 20260708000000_init_pgvector runs
+        # `CREATE EXTENSION vector`. Matches docker-compose.yml.
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: helpdesk_test
+        # 5433 on the host mirrors the local docker-compose mapping, so
+        # server/.env.test.example works in CI without any rewriting.
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d helpdesk_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      # src/test/setup.ts refuses to run unless this points at a *_test database.
+      DATABASE_URL: postgresql://user:password@localhost:5433/helpdesk_test?schema=public
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      # server/.env.test is gitignored; the committed example holds the same
+      # values (DB on 5433, seed credentials, 32-char webhook secret) and is
+      # what src/test/setup.ts loads with `override: true`.
+      - name: Create server/.env.test
+        run: cp server/.env.test.example server/.env.test
+
+      - name: Generate Prisma client
+        run: bun run --filter server db:generate
+
+      - name: Apply migrations
+        run: bun run db:migrate:deploy
+        working-directory: ${{ github.workspace }}
+
+      - name: Seed test fixtures (admin, agent, AI user, sample tickets)
+        run: bun run db:test:seed
+
+      - name: Bun test (server routes + webhooks)
+        run: bun run test:server
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      # Informational: the full advisory list, including transitive ones we
+      # currently have no fixed version for. Never fails the build.
+      - name: bun audit (full report)
+        continue-on-error: true
+        run: bun audit
+
+      # The gate. Today the tree has high/moderate advisories that only
+      # upstream can fix (prisma, @huggingface/transformers, vite/postcss), so
+      # blocking at `high` would keep CI permanently red. Tighten this to
+      # `--audit-level=high` once those transitive deps have patched releases.
+      - name: Fail on critical advisories
+        run: bun audit --audit-level=critical

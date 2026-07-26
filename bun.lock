@@ -63,6 +63,9 @@
         "isomorphic-dompurify": "^3.19.0",
         "zod": "^4.4.3",
       },
+      "devDependencies": {
+        "typescript": "^5.9.3",
+      },
     },
     "server": {
       "name": "server",
