@@ -31,6 +31,29 @@ enum TicketCategory {
   OTHER
 }
 
+enum ReplyDirection {
+  INBOUND
+  OUTBOUND
+}
+
+/// Human-in-the-loop gate on outbound delivery. Only AI replies on
+/// email-sourced tickets are ever created PENDING_APPROVAL (audit S6);
+/// everything else is NOT_REQUIRED.
+enum ReplyApprovalState {
+  NOT_REQUIRED
+  PENDING_APPROVAL
+  APPROVED
+  DISCARDED
+}
+
+enum EmailDeliveryState {
+  NOT_QUEUED
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -47,6 +70,7 @@ model User {
 
   assignedTickets Ticket[] @relation("AssignedAgent")
   createdTickets  Ticket[] @relation("CreatedBy")
+  approvedReplies Reply[]  @relation("ApprovedReplies")
 }
 
 model Session {
@@ -121,10 +145,23 @@ model Reply {
   externalMessageId String?
   createdAt         DateTime @default(now())
 
+  direction         ReplyDirection     @default(OUTBOUND)
+  approval          ReplyApprovalState @default(NOT_REQUIRED)
+  deliveryState     EmailDeliveryState @default(NOT_QUEUED)
+  sentAt            DateTime?
+  deliveryError     String?
+  sendAttempts      Int                @default(0)
+  lastSendAttemptAt DateTime?
+
+  approvedBy   User?   @relation("ApprovedReplies", fields: [approvedById], references: [id])
+  approvedById String?
+
   ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   ticketId String
 
   @@index([externalMessageId])
+  @@index([deliveryState])
+  @@index([ticketId, approval])
 }
 
 model KnowledgeChunk {
