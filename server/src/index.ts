@@ -4,6 +4,7 @@ import { startBoss } from "./lib/boss.js";
 import { registerProcessTicketWorker } from "./jobs/processTicket.js";
 import { registerEmbedDocumentWorker } from "./jobs/embed-document.js";
 import { registerSweepStaleTicketsWorker } from "./jobs/sweepStaleTickets.js";
+import { registerSendEmailWorker } from "./jobs/sendEmail.js";
 
 if (!process.env.BETTER_AUTH_SECRET) {
   console.error("FATAL: BETTER_AUTH_SECRET env var is not set");
@@ -24,6 +25,7 @@ await startBoss();
 await registerProcessTicketWorker();
 await registerEmbedDocumentWorker();
 await registerSweepStaleTicketsWorker();
+await registerSendEmailWorker();
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
