@@ -318,27 +318,62 @@ Do not include any explanation outside the JSON.`,
   }
 
   if (resolved && aiReply) {
-    // The reply is only stored, never sent: nothing in the system delivers email
-    // yet. When outbound email lands, AI replies to email-sourced tickets must go
-    // through human approval before they can be sent (TASKS.md Phase 6).
-    // Create the AI reply and mark ticket as RESOLVED
-    await prisma.$transaction([
-      prisma.reply.create({
+    // fromEmail is not in the job payload (and older already-queued jobs
+    // wouldn't carry it anyway), so read it back off the row — it is the
+    // only marker of an email-sourced ticket (see lib/tickets/isEmailSourced.ts).
+    const deliveryTarget = await prisma.ticket.findUnique({
+      where: { id: ticketId },
+      select: { fromEmail: true },
+    });
+
+    if (deliveryTarget?.fromEmail) {
+      // Audit S6: an AI reply that would leave the building needs a human in
+      // the loop. Park the draft as PENDING_APPROVAL and push the ticket to
+      // OPEN so it shows up in the agent queue; "Approve & send" on the
+      // ticket detail page queues the email and only then resolves the ticket.
+      await prisma.reply.create({
         data: {
           ticketId,
           body: aiReply,
           isAi: true,
+          direction: "OUTBOUND",
+          approval: "PENDING_APPROVAL",
+          deliveryState: "NOT_QUEUED",
         },
-      }),
-      prisma.ticket.update({
-        where: { id: ticketId },
-        data: { status: "RESOLVED" },
-      }),
-    ]);
+      });
 
-    console.info(
-      `[process-ticket] Ticket ${ticketId} auto-resolved by AI ✓`,
-    );
+      // Reuses the standard escalation path so the ticket is also unassigned
+      // from the AI agent. Not atomic with the create above: if the process
+      // dies in between, the ticket sits in PROCESSING with a pending draft
+      // and sweepStaleTickets flips it to OPEN within 15 minutes.
+      await escalateToOpen(ticketId, aiAgent?.id);
+
+      console.info(
+        `[process-ticket] Ticket ${ticketId} has an AI draft awaiting agent approval (email-sourced)`,
+      );
+    } else {
+      // Non-email ticket: nothing is ever delivered, so the existing
+      // auto-resolve behaviour is unchanged.
+      await prisma.$transaction([
+        prisma.reply.create({
+          data: {
+            ticketId,
+            body: aiReply,
+            isAi: true,
+            direction: "OUTBOUND",
+            approval: "NOT_REQUIRED",
+          },
+        }),
+        prisma.ticket.update({
+          where: { id: ticketId },
+          data: { status: "RESOLVED" },
+        }),
+      ]);
+
+      console.info(
+        `[process-ticket] Ticket ${ticketId} auto-resolved by AI ✓`,
+      );
+    }
   } else {
     // Can't answer — pass to human agents
     await escalateToOpen(ticketId, aiAgent?.id);

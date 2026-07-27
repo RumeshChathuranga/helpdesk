@@ -76,11 +76,16 @@ describe("runProcessTicket", () => {
   });
 
   /** Mimics the state the pg-boss worker puts a ticket in before calling runProcessTicket. */
-  async function createProcessingTicket(subject: string, body: string) {
+  async function createProcessingTicket(
+    subject: string,
+    body: string,
+    fromEmail?: string,
+  ) {
     const ticket = await prisma.ticket.create({
       data: {
         subject,
         body,
+        fromEmail,
         status: "PROCESSING",
         assignedToId: aiAgentId,
       },
@@ -141,6 +146,41 @@ describe("runProcessTicket", () => {
     expect(replies[0]?.body).toBe(
       "Here is your answer based on our knowledge base.",
     );
+  });
+
+  it("parks the AI reply as a pending-approval draft and escalates to OPEN for an email-sourced ticket, instead of auto-resolving", async () => {
+    aiMockState.classificationCategory = "BILLING";
+    aiMockState.resolution = {
+      resolved: true,
+      reply: "Here is your answer based on our knowledge base.",
+    };
+    await insertMatchingKnowledgeChunk(
+      "Refunds are processed within 5 business days.",
+    );
+
+    const ticket = await createProcessingTicket(
+      "Refund question",
+      "Where is my refund?",
+      "customer@example.com",
+    );
+
+    await runProcessTicket({
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      body: ticket.body,
+      aiAgent: { id: aiAgentId },
+      githubToken: "fake-token",
+    });
+
+    const updated = await prisma.ticket.findUnique({ where: { id: ticket.id } });
+    expect(updated?.status).toBe("OPEN");
+    expect(updated?.assignedToId).toBeNull();
+
+    const replies = await prisma.reply.findMany({ where: { ticketId: ticket.id } });
+    expect(replies).toHaveLength(1);
+    expect(replies[0]?.isAi).toBe(true);
+    expect(replies[0]?.approval).toBe("PENDING_APPROVAL");
+    expect(replies[0]?.deliveryState).toBe("NOT_QUEUED");
   });
 
   it("escalates to OPEN and unassigns the AI agent when the model can't resolve it", async () => {
