@@ -14,7 +14,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 
 ### AI-Powered Capabilities (Powered by GitHub Models & AI SDK)
 - **Intelligent Ticket Classification:** Incoming support tickets are automatically analyzed and categorized (e.g., Billing, Technical, Bug, Feature Request) upon creation via background jobs, eliminating manual triage.
-- **Retrieval-Augmented Generation (RAG):** The AI autonomously resolves tickets using a highly optimized, local RAG pipeline. Incoming tickets are converted into vector embeddings via `transformers.js` (`Xenova/all-MiniLM-L6-v2`) and semantically searched against a `pgvector` database to instantly inject the most relevant Knowledge Base context. If a clear answer is found, it posts a reply on the ticket and resolves it instantly. (Outbound email delivery is not yet implemented — the reply is recorded on the ticket, not sent to the customer's inbox.)
+- **Retrieval-Augmented Generation (RAG):** The AI autonomously resolves tickets using a highly optimized, local RAG pipeline. Incoming tickets are converted into vector embeddings via `transformers.js` (`Xenova/all-MiniLM-L6-v2`) and semantically searched against a `pgvector` database to instantly inject the most relevant Knowledge Base context. If a clear answer is found on a ticket with no customer email, it's sent immediately; on an email-sourced ticket the draft is held for human approval before it's ever emailed out (see Outbound Email below).
 - **Smart Escalation:** The AI safely detects edge cases—such as legal threats, chargebacks, out-of-policy refund requests, or complex technical issues—and immediately escalates them to human agents.
 - **Agent Draft Polishing:** Agents can write quick, rough drafts, and the AI will instantly refine the text to ensure professional grammar, clarity, empathy, and consistent brand formatting.
 - **Conversation Summarization:** For lengthy ticket threads, the AI generates a concise, 3-5 bullet point summary highlighting the core issue, actions taken, and next steps, providing agents with instant context.
@@ -23,7 +23,8 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 - **Ticket Management:** Comprehensive dashboard to view, filter, sort, and manage tickets.
 - **Role-Based Access Control:** Differentiated roles for Admins (user management, system configuration) and Agents (ticket handling).
 - **Knowledge Base UI:** Dedicated admin interface to seamlessly add, manage, and delete vector-embedded Knowledge Base snippets directly from the UI.
-- **Inbound Email Webhooks:** Secure webhook endpoints configured to parse raw inbound email payloads directly into structured support tickets.
+- **Inbound Email Webhooks:** Secure webhook endpoints configured to parse raw inbound email payloads directly into structured support tickets, threading replies (including replies-to-replies) onto the correct ticket via `In-Reply-To`/`References`.
+- **Outbound Email:** Agent and (approved) AI replies are delivered to the customer's inbox through a pluggable email adapter (SMTP in production, a no-op console logger everywhere else) via a `pg-boss` background job with retry and idempotent delivery. See [`docs/email-setup.md`](docs/email-setup.md) to configure it and test the full send/receive loop against your own Gmail account.
 - **Background Job Processing:** Robust asynchronous job queue (using `pg-boss`) to handle AI classification, embedding generation, and auto-reply tasks reliably in the background without blocking the main API thread.
 - **Monorepo Architecture:** Clean codebase separation using Bun workspaces (`packages/core`) to share types and validation schemas across the client and server.
 
@@ -79,6 +80,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
    ```
    *Make sure to add your `DATABASE_URL` and `GITHUB_MODELS_TOKEN` in `server/.env`.*
    *(The root `.env.example` is only used for the Docker Compose setup below.)*
+   *Outbound email defaults to a console logger (`EMAIL_DRIVER=log`) — no extra setup needed to run the app. To send real emails and test the full reply loop against your own inbox, see [`docs/email-setup.md`](docs/email-setup.md).*
 
 4. **Database Setup**
    Deploy the database schema and seed the initial data (including the AI agent):
