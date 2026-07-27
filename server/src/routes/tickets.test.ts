@@ -11,6 +11,8 @@ import { createApp } from "../app.js";
 import { prisma } from "../lib/prisma.js";
 import { boss, startBoss } from "../lib/boss.js";
 import { loginAsAgent, startTestServer } from "../test/helpers.js";
+import { setEmailDriverForTesting } from "../lib/email/index.js";
+import type { EmailDriver } from "../lib/email/index.js";
 
 describe("ticketListSortToOrderBy", () => {
   it("maps subject sort", () => {
@@ -903,5 +905,294 @@ describe("GET /api/tickets/stats", () => {
     expect(after.openTickets - before.openTickets).toBe(1);
     expect(after.resolvedTickets - before.resolvedTickets).toBe(1);
     expect(after.aiResolvedCount - before.aiResolvedCount).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/tickets/:id/replies (+ sendEmail) and the approve/discard/retry
+// moderation endpoints. A stub email driver replaces the real smtp/log
+// driver so no send-email job is left dangling against a mail provider.
+// ---------------------------------------------------------------------------
+
+describe("POST /api/tickets/:id/replies", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    await startBoss();
+    await boss.createQueue("send-email");
+
+    const stubDriver: EmailDriver = {
+      name: "log",
+      async send(message) {
+        return { ok: true, messageId: message.messageId, accepted: [message.to] };
+      },
+    };
+    setEmailDriverForTesting(stubDriver);
+
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length === 0) return;
+
+    await prisma.reply.deleteMany({ where: { ticketId: { in: [...createdTicketIds] } } });
+    await prisma.ticket.deleteMany({ where: { id: { in: [...createdTicketIds] } } });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+    setEmailDriverForTesting(undefined);
+  });
+
+  async function createTicketFixture(fromEmail: string | null = "customer@example.com") {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Test subject", body: "Test body", fromEmail, status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+    return ticket;
+  }
+
+  async function postReply(ticketId: string, body: Record<string, unknown>) {
+    return fetch(`${baseUrl}/api/tickets/${ticketId}/replies`, {
+      method: "POST",
+      headers: { Cookie: authCookie, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("returns 401 when not authenticated", async () => {
+    const ticket = await createTicketFixture();
+    const res = await fetch(`${baseUrl}/api/tickets/${ticket.id}/replies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body: "hi" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("defaults sendEmail to true and queues the send when the ticket has a fromEmail", async () => {
+    const ticket = await createTicketFixture("customer@example.com");
+    const res = await postReply(ticket.id, { body: "Thanks for reaching out." });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { reply: { deliveryState: string; sentEmail: boolean } };
+    expect(json.reply.deliveryState).toBe("QUEUED");
+  });
+
+  it("defaults sendEmail to false when the ticket has no fromEmail", async () => {
+    const ticket = await createTicketFixture(null);
+    const res = await postReply(ticket.id, { body: "Internal note." });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { reply: { deliveryState: string } };
+    expect(json.reply.deliveryState).toBe("NOT_QUEUED");
+  });
+
+  it("respects an explicit sendEmail: false even when the ticket has a fromEmail", async () => {
+    const ticket = await createTicketFixture("customer@example.com");
+    const res = await postReply(ticket.id, { body: "Not emailed.", sendEmail: false });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as { reply: { deliveryState: string } };
+    expect(json.reply.deliveryState).toBe("NOT_QUEUED");
+  });
+
+  it("returns 400 for an explicit sendEmail: true on a ticket with no fromEmail", async () => {
+    const ticket = await createTicketFixture(null);
+    const res = await postReply(ticket.id, { body: "Cannot email.", sendEmail: true });
+
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as { error: string };
+    expect(json.error).toBe("This ticket has no customer email address");
+  });
+});
+
+describe("Reply moderation: approve / discard / retry-send", () => {
+  let server: Server;
+  let baseUrl: string;
+  let authCookie = "";
+  const createdTicketIds: string[] = [];
+
+  beforeAll(async () => {
+    await startBoss();
+    await boss.createQueue("send-email");
+
+    const stubDriver: EmailDriver = {
+      name: "log",
+      async send(message) {
+        return { ok: true, messageId: message.messageId, accepted: [message.to] };
+      },
+    };
+    setEmailDriverForTesting(stubDriver);
+
+    const app = createApp();
+    ({ server, baseUrl } = startTestServer(app));
+    authCookie = await loginAsAgent(baseUrl);
+  });
+
+  afterEach(async () => {
+    if (createdTicketIds.length === 0) return;
+
+    await prisma.reply.deleteMany({ where: { ticketId: { in: [...createdTicketIds] } } });
+    await prisma.ticket.deleteMany({ where: { id: { in: [...createdTicketIds] } } });
+    createdTicketIds.length = 0;
+  });
+
+  afterAll(() => {
+    server?.close();
+    setEmailDriverForTesting(undefined);
+  });
+
+  async function createPendingDraft(fromEmail: string | null = "customer@example.com") {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "Test subject", body: "Test body", fromEmail, status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const reply = await prisma.reply.create({
+      data: {
+        ticketId: ticket.id,
+        body: "AI draft reply",
+        isAi: true,
+        direction: "OUTBOUND",
+        approval: "PENDING_APPROVAL",
+        deliveryState: "NOT_QUEUED",
+      },
+    });
+
+    return { ticket, reply };
+  }
+
+  async function postAction(ticketId: string, replyId: string, action: string, body?: unknown) {
+    return fetch(`${baseUrl}/api/tickets/${ticketId}/replies/${replyId}/${action}`, {
+      method: "POST",
+      headers: { Cookie: authCookie, "Content-Type": "application/json" },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
+  it("returns 401 for approve when not authenticated", async () => {
+    const { ticket, reply } = await createPendingDraft();
+    const res = await fetch(
+      `${baseUrl}/api/tickets/${ticket.id}/replies/${reply.id}/approve`,
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" },
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("approves a pending draft, queues the send, and records the approver", async () => {
+    const { ticket, reply } = await createPendingDraft();
+    const res = await postAction(ticket.id, reply.id, "approve", {});
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { reply: { approval: string; deliveryState: string } };
+    expect(json.reply.approval).toBe("APPROVED");
+    expect(json.reply.deliveryState).toBe("QUEUED");
+
+    const stored = await prisma.reply.findUniqueOrThrow({ where: { id: reply.id } });
+    expect(stored.approvedById).not.toBeNull();
+  });
+
+  it("allows editing the body on approve", async () => {
+    const { ticket, reply } = await createPendingDraft();
+    const res = await postAction(ticket.id, reply.id, "approve", { body: "Edited reply text" });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { reply: { body: string } };
+    expect(json.reply.body).toBe("Edited reply text");
+  });
+
+  it("returns 409 approving a reply that is not pending approval", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "s", body: "b", fromEmail: "c@example.com", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+    const reply = await prisma.reply.create({
+      data: { ticketId: ticket.id, body: "Regular reply", approval: "NOT_REQUIRED" },
+    });
+
+    const res = await postAction(ticket.id, reply.id, "approve", {});
+    expect(res.status).toBe(409);
+  });
+
+  it("returns 400 approving a draft on a ticket with no fromEmail", async () => {
+    const { ticket, reply } = await createPendingDraft(null);
+    const res = await postAction(ticket.id, reply.id, "approve", {});
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 404 when the reply does not belong to the ticket", async () => {
+    const { reply } = await createPendingDraft();
+    const otherTicket = await createPendingDraft();
+
+    const res = await postAction(otherTicket.ticket.id, reply.id, "approve", {});
+    expect(res.status).toBe(404);
+  });
+
+  it("discards a pending draft without sending it, leaving the ticket status untouched", async () => {
+    const { ticket, reply } = await createPendingDraft();
+    const res = await postAction(ticket.id, reply.id, "discard");
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { reply: { approval: string; deliveryState: string } };
+    expect(json.reply.approval).toBe("DISCARDED");
+    expect(json.reply.deliveryState).toBe("NOT_QUEUED");
+
+    const ticketAfter = await prisma.ticket.findUniqueOrThrow({ where: { id: ticket.id } });
+    expect(ticketAfter.status).toBe("OPEN");
+  });
+
+  it("returns 409 discarding a reply that is not pending approval", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "s", body: "b", fromEmail: "c@example.com", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+    const reply = await prisma.reply.create({
+      data: { ticketId: ticket.id, body: "Regular reply", approval: "NOT_REQUIRED" },
+    });
+
+    const res = await postAction(ticket.id, reply.id, "discard");
+    expect(res.status).toBe(409);
+  });
+
+  it("retries a failed send and clears the delivery error", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "s", body: "b", fromEmail: "c@example.com", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+    const reply = await prisma.reply.create({
+      data: {
+        ticketId: ticket.id,
+        body: "Failed reply",
+        direction: "OUTBOUND",
+        deliveryState: "FAILED",
+        deliveryError: "SMTP timeout",
+      },
+    });
+
+    const res = await postAction(ticket.id, reply.id, "retry-send");
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { reply: { deliveryState: string; deliveryError: string | null } };
+    expect(json.reply.deliveryState).toBe("QUEUED");
+    expect(json.reply.deliveryError).toBeNull();
+  });
+
+  it("returns 409 retrying a reply that has not failed", async () => {
+    const ticket = await prisma.ticket.create({
+      data: { subject: "s", body: "b", fromEmail: "c@example.com", status: "OPEN" },
+    });
+    createdTicketIds.push(ticket.id);
+    const reply = await prisma.reply.create({
+      data: { ticketId: ticket.id, body: "Sent reply", deliveryState: "SENT" },
+    });
+
+    const res = await postAction(ticket.id, reply.id, "retry-send");
+    expect(res.status).toBe(409);
   });
 });

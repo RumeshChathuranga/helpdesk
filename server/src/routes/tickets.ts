@@ -1,4 +1,5 @@
 import {
+  approveReplyBodySchema,
   createReplyBodySchema,
   createTicketBodySchema,
   DEFAULT_TICKET_LIST_SORT,
@@ -19,6 +20,7 @@ import { requireAgent } from "../middleware/requireAgent.js";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { enqueueProcessTicket } from "../jobs/processTicket.js";
+import { enqueueSendEmail } from "../jobs/sendEmail.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
 import { AI_AGENT_EMAIL, SUPPORT_EMAIL } from "../config.js";
 
@@ -75,6 +77,11 @@ const replySelect = {
   sentEmail: true,
   externalMessageId: true,
   createdAt: true,
+  direction: true,
+  approval: true,
+  deliveryState: true,
+  sentAt: true,
+  deliveryError: true,
 } as const;
 
 function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
@@ -172,15 +179,207 @@ ticketsRouter.post("/:id/replies", requireAgent, validateBody(createReplyBodySch
   const ticketId = await requireTicketIdOrRespond(res, req.params.id);
   if (!ticketId) return;
 
+  const ticket = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { fromEmail: true },
+  });
+
+  const shouldSend = req.body.sendEmail ?? Boolean(ticket?.fromEmail);
+  if (shouldSend && !ticket?.fromEmail) {
+    res.status(400).json({ error: "This ticket has no customer email address" });
+    return;
+  }
+
   const reply = await prisma.reply.create({
     data: {
       ticketId,
       body: req.body.body,
+      direction: "OUTBOUND",
+      approval: "NOT_REQUIRED",
+      deliveryState: shouldSend ? "QUEUED" : "NOT_QUEUED",
     },
     select: replySelect,
   });
 
+  if (!shouldSend) {
+    res.status(201).json({ reply });
+    return;
+  }
+
+  try {
+    await enqueueSendEmail({ replyId: reply.id });
+  } catch (err) {
+    // Same posture as ticket creation: never lose the reply because the
+    // queue is down — record it as failed so the agent can retry.
+    console.error(`Failed to enqueue send-email job for reply ${reply.id}:`, err);
+    const updated = await prisma.reply.update({
+      where: { id: reply.id },
+      data: {
+        deliveryState: "FAILED",
+        deliveryError: "Could not queue the email for sending",
+      },
+      select: replySelect,
+    });
+    res.status(201).json({ reply: updated });
+    return;
+  }
+
   res.status(201).json({ reply });
+});
+
+async function loadReplyForModeration(
+  res: Response,
+  ticketId: string,
+  replyId: string,
+): Promise<{
+  reply: { id: string; approval: string; deliveryState: string };
+  ticket: { fromEmail: string | null };
+} | null> {
+  const reply = await prisma.reply.findUnique({
+    where: { id: replyId },
+    select: {
+      id: true,
+      approval: true,
+      deliveryState: true,
+      ticket: { select: { id: true, fromEmail: true } },
+    },
+  });
+
+  if (!reply || reply.ticket.id !== ticketId) {
+    res.status(404).json({ error: "Reply not found" });
+    return null;
+  }
+
+  return { reply, ticket: reply.ticket };
+}
+
+ticketsRouter.post(
+  "/:id/replies/:replyId/approve",
+  requireAgent,
+  validateBody(approveReplyBodySchema),
+  async (req, res) => {
+    const ticketId = parseRouteId(req.params.id);
+    const replyId = parseRouteId(req.params.replyId);
+    if (!ticketId || !replyId) {
+      res.status(400).json({ error: "Invalid ticket or reply id" });
+      return;
+    }
+
+    const loaded = await loadReplyForModeration(res, ticketId, replyId);
+    if (!loaded) return;
+    const { reply, ticket } = loaded;
+
+    if (reply.approval !== "PENDING_APPROVAL") {
+      res.status(409).json({ error: "This reply is not awaiting approval" });
+      return;
+    }
+    if (!ticket.fromEmail) {
+      res.status(400).json({ error: "This ticket has no customer email address" });
+      return;
+    }
+
+    const updated = await prisma.reply.update({
+      where: { id: replyId },
+      data: {
+        ...(req.body.body ? { body: req.body.body } : {}),
+        approval: "APPROVED",
+        approvedById: res.locals.agentSession!.user.id,
+        deliveryState: "QUEUED",
+        deliveryError: null,
+      },
+      select: replySelect,
+    });
+
+    try {
+      await enqueueSendEmail({ replyId });
+    } catch (err) {
+      console.error(`Failed to enqueue send-email job for reply ${replyId}:`, err);
+      const failed = await prisma.reply.update({
+        where: { id: replyId },
+        data: {
+          deliveryState: "FAILED",
+          deliveryError: "Could not queue the email for sending",
+        },
+        select: replySelect,
+      });
+      res.json({ reply: failed });
+      return;
+    }
+
+    res.json({ reply: updated });
+  },
+);
+
+ticketsRouter.post("/:id/replies/:replyId/discard", requireAgent, async (req, res) => {
+  const ticketId = parseRouteId(req.params.id);
+  const replyId = parseRouteId(req.params.replyId);
+  if (!ticketId || !replyId) {
+    res.status(400).json({ error: "Invalid ticket or reply id" });
+    return;
+  }
+
+  const loaded = await loadReplyForModeration(res, ticketId, replyId);
+  if (!loaded) return;
+  const { reply } = loaded;
+
+  if (reply.approval !== "PENDING_APPROVAL") {
+    res.status(409).json({ error: "This reply is not awaiting approval" });
+    return;
+  }
+
+  const updated = await prisma.reply.update({
+    where: { id: replyId },
+    data: { approval: "DISCARDED", deliveryState: "NOT_QUEUED" },
+    select: replySelect,
+  });
+
+  res.json({ reply: updated });
+});
+
+ticketsRouter.post("/:id/replies/:replyId/retry-send", requireAgent, async (req, res) => {
+  const ticketId = parseRouteId(req.params.id);
+  const replyId = parseRouteId(req.params.replyId);
+  if (!ticketId || !replyId) {
+    res.status(400).json({ error: "Invalid ticket or reply id" });
+    return;
+  }
+
+  const loaded = await loadReplyForModeration(res, ticketId, replyId);
+  if (!loaded) return;
+  const { reply, ticket } = loaded;
+
+  if (reply.deliveryState !== "FAILED") {
+    res.status(409).json({ error: "This reply has not failed to send" });
+    return;
+  }
+  if (!ticket.fromEmail) {
+    res.status(400).json({ error: "This ticket has no customer email address" });
+    return;
+  }
+
+  const updated = await prisma.reply.update({
+    where: { id: replyId },
+    data: { deliveryState: "QUEUED", deliveryError: null },
+    select: replySelect,
+  });
+
+  try {
+    await enqueueSendEmail({ replyId });
+  } catch (err) {
+    console.error(`Failed to enqueue send-email job for reply ${replyId}:`, err);
+    const failed = await prisma.reply.update({
+      where: { id: replyId },
+      data: {
+        deliveryState: "FAILED",
+        deliveryError: "Could not queue the email for sending",
+      },
+      select: replySelect,
+    });
+    res.json({ reply: failed });
+    return;
+  }
+
+  res.json({ reply: updated });
 });
 
 const polishReplyBodySchema = z.object({
