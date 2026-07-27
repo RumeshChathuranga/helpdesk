@@ -174,6 +174,7 @@ describe("POST /api/webhooks/inbound-email", () => {
     });
     expect(replies).toHaveLength(1);
     expect(replies[0]?.body).toBe("Following up on my refund");
+    expect(replies[0]?.direction).toBe("INBOUND");
   });
 
   it("appends a reply-to-a-reply to the original ticket, not the first reply's message id", async () => {
@@ -225,5 +226,89 @@ describe("POST /api/webhooks/inbound-email", () => {
     });
     expect(replies).toHaveLength(2);
     expect(replies[1]?.body).toBe("Still waiting on this");
+  });
+
+  it("threads via the References header when In-Reply-To is missing", async () => {
+    const originalMessageId = `<thread-${crypto.randomUUID()}@mail>`;
+
+    const createRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Refund question",
+      body: "Original message",
+      messageId: originalMessageId,
+    });
+    const { ticketId } = (await createRes.json()) as { ticketId: string };
+    createdTicketIds.push(ticketId);
+
+    // A relay that drops In-Reply-To but preserves References.
+    const replyRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Re: Refund question",
+      body: "Following up via References only",
+      messageId: `<reply-${crypto.randomUUID()}@mail>`,
+      references: [originalMessageId],
+    });
+
+    expect(replyRes.status).toBe(200);
+    const replyJson = (await replyRes.json()) as { ticketId: string; created: string };
+    expect(replyJson.created).toBe("reply");
+    expect(replyJson.ticketId).toBe(ticketId);
+  });
+
+  it("is idempotent — replaying the same messageId does not create a duplicate reply", async () => {
+    const originalMessageId = `<thread-${crypto.randomUUID()}@mail>`;
+    const createRes = await postInboundEmail({
+      fromEmail: "student@example.com",
+      subject: "Refund question",
+      body: "Original message",
+      messageId: originalMessageId,
+    });
+    const { ticketId } = (await createRes.json()) as { ticketId: string };
+    createdTicketIds.push(ticketId);
+
+    const replyMessageId = `<reply-${crypto.randomUUID()}@mail>`;
+    const replyPayload = {
+      fromEmail: "student@example.com",
+      subject: "Re: Refund question",
+      body: "Following up",
+      messageId: replyMessageId,
+      inReplyTo: originalMessageId,
+    };
+
+    const firstRes = await postInboundEmail(replyPayload);
+    expect(firstRes.status).toBe(200);
+
+    // Simulate a webhook retry / IMAP re-poll delivering the same message twice.
+    const secondRes = await postInboundEmail(replyPayload);
+    expect(secondRes.status).toBe(200);
+    const secondJson = (await secondRes.json()) as { ticketId: string };
+    expect(secondJson.ticketId).toBe(ticketId);
+
+    const replies = await prisma.reply.findMany({ where: { ticketId } });
+    expect(replies).toHaveLength(1);
+  });
+
+  it("is idempotent — replaying the original ticket's own messageId does not create another ticket", async () => {
+    const originalMessageId = `<thread-${crypto.randomUUID()}@mail>`;
+    const payload = {
+      fromEmail: "student@example.com",
+      subject: "Refund question",
+      body: "Original message",
+      messageId: originalMessageId,
+    };
+
+    const firstRes = await postInboundEmail(payload);
+    const { ticketId } = (await firstRes.json()) as { ticketId: string };
+    createdTicketIds.push(ticketId);
+
+    const secondRes = await postInboundEmail(payload);
+    expect(secondRes.status).toBe(200);
+    const secondJson = (await secondRes.json()) as { ticketId: string };
+    expect(secondJson.ticketId).toBe(ticketId);
+
+    const allTicketsWithThisMessageId = await prisma.ticket.findMany({
+      where: { externalMessageId: originalMessageId },
+    });
+    expect(allTicketsWithThisMessageId).toHaveLength(1);
   });
 });
