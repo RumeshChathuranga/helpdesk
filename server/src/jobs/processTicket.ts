@@ -6,6 +6,7 @@ import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
 import { embedText } from "../lib/embeddings.js";
+import { isEmailSourced } from "../lib/tickets/isEmailSourced.js";
 import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
@@ -319,14 +320,13 @@ Do not include any explanation outside the JSON.`,
 
   if (resolved && aiReply) {
     // fromEmail is not in the job payload (and older already-queued jobs
-    // wouldn't carry it anyway), so read it back off the row — it is the
-    // only marker of an email-sourced ticket (see lib/tickets/isEmailSourced.ts).
+    // wouldn't carry it anyway), so read it back off the row.
     const deliveryTarget = await prisma.ticket.findUnique({
       where: { id: ticketId },
       select: { fromEmail: true },
     });
 
-    if (deliveryTarget?.fromEmail) {
+    if (isEmailSourced(deliveryTarget ?? { fromEmail: null })) {
       // Audit S6: an AI reply that would leave the building needs a human in
       // the loop. Park the draft as PENDING_APPROVAL and push the ticket to
       // OPEN so it shows up in the agent queue; "Approve & send" on the
