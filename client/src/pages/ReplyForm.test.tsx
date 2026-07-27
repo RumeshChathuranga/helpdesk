@@ -25,10 +25,18 @@ const createdReply = {
   sentEmail: false,
   externalMessageId: null,
   createdAt: "2024-06-04T12:00:00.000Z",
+  direction: "OUTBOUND" as const,
+  approval: "NOT_REQUIRED" as const,
+  deliveryState: "NOT_QUEUED" as const,
+  sentAt: null,
+  deliveryError: null,
 };
 
-function renderReplyForm(id = ticketId) {
-  return renderWithProviders(<ReplyForm ticketId={id} />);
+function renderReplyForm(
+  id = ticketId,
+  customerEmail: string | null = "customer@example.com",
+) {
+  return renderWithProviders(<ReplyForm ticketId={id} customerEmail={customerEmail} />);
 }
 
 beforeEach(() => {
@@ -69,7 +77,7 @@ describe("ReplyForm", () => {
     expect(mockedPost).not.toHaveBeenCalled();
   });
 
-  it("submits valid values via POST with credentials", async () => {
+  it("submits valid values via POST with credentials, sendEmail true by default when the ticket has a customer email", async () => {
     mockedPost.mockResolvedValue({ data: { reply: createdReply } });
 
     renderReplyForm();
@@ -82,7 +90,54 @@ describe("ReplyForm", () => {
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
         "/api/tickets/t1/replies",
-        { body: "Thanks for reaching out." },
+        { body: "Thanks for reaching out.", sendEmail: true },
+        { withCredentials: true },
+      );
+    });
+  });
+
+  it("submits sendEmail: false when the customer-email checkbox is unchecked", async () => {
+    mockedPost.mockResolvedValue({ data: { reply: createdReply } });
+
+    renderReplyForm();
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "Thanks for reaching out." },
+    });
+    fireEvent.click(
+      screen.getByLabelText(/Also email this reply to customer@example.com/i),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith(
+        "/api/tickets/t1/replies",
+        { body: "Thanks for reaching out.", sendEmail: false },
+        { withCredentials: true },
+      );
+    });
+  });
+
+  it("disables and unchecks the email checkbox when the ticket has no customer email", async () => {
+    mockedPost.mockResolvedValue({ data: { reply: createdReply } });
+
+    renderReplyForm(ticketId, null);
+
+    const checkbox = screen.getByLabelText(
+      /No customer email on this ticket/i,
+    ) as HTMLInputElement;
+    expect(checkbox).toBeDisabled();
+    expect(checkbox.checked).toBe(false);
+
+    fireEvent.change(screen.getByLabelText("Message"), {
+      target: { value: "Internal note." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send reply" }));
+
+    await waitFor(() => {
+      expect(mockedPost).toHaveBeenCalledWith(
+        "/api/tickets/t1/replies",
+        { body: "Internal note.", sendEmail: false },
         { withCredentials: true },
       );
     });

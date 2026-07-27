@@ -31,9 +31,10 @@ const textareaClassName = cn(
 
 type ReplyFormProps = {
   ticketId: string;
+  customerEmail: string | null;
 };
 
-export function ReplyForm({ ticketId }: ReplyFormProps) {
+export function ReplyForm({ ticketId, customerEmail }: ReplyFormProps) {
   const createMutation = useCreateReply(ticketId);
   const polishMutation = usePolishReply(ticketId);
 
@@ -41,6 +42,7 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
     resolver: zodResolver(replyFormSchema) as Resolver<ReplyFormValues>,
     defaultValues: {
       body: "",
+      sendEmail: Boolean(customerEmail),
     },
   });
 
@@ -48,7 +50,7 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
     form.clearErrors("root");
     createMutation.mutate(values, {
       onSuccess: () => {
-        form.reset({ body: "" });
+        form.reset({ body: "", sendEmail: Boolean(customerEmail) });
       },
       onError: (e) => {
         form.setError("root", { message: getErrorMessage(e) });
@@ -135,6 +137,18 @@ export function ReplyForm({ ticketId }: ReplyFormProps) {
               </FormItem>
             )}
           />
+
+          <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-input bg-background accent-primary disabled:opacity-50"
+              disabled={!customerEmail}
+              {...form.register("sendEmail")}
+            />
+            {customerEmail
+              ? `Also email this reply to ${customerEmail}`
+              : "No customer email on this ticket — the reply will only be recorded here."}
+          </label>
 
           <div className="flex items-center gap-3">
             <Button

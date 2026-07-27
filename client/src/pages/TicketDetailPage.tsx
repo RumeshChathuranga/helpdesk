@@ -1,13 +1,19 @@
+import { useState } from "react";
 import { AGENT_VISIBLE_STATUSES } from "core";
+import type { EmailDeliveryState } from "core";
 import { isAxiosError } from "axios";
 import { ArrowLeft, RotateCcw, Sparkles } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useApproveReply } from "@/hooks/useApproveReply";
+import { useDiscardReply } from "@/hooks/useDiscardReply";
+import { useRetrySendReply } from "@/hooks/useRetrySendReply";
 import { useSummarizeTicket } from "@/hooks/useSummarizeTicket";
 import { useTicket } from "@/hooks/useTicket";
 import { getErrorMessage } from "@/lib/getErrorMessage";
+import { cn } from "@/lib/utils";
 import type { TicketReply } from "@/lib/tickets";
 import { EditTicketForm } from "./EditTicketForm";
 import { ReplyForm } from "./ReplyForm";
@@ -16,6 +22,24 @@ import {
   STATUS_BADGE,
   STATUS_LABEL,
 } from "./TicketsTable";
+
+const BADGE_BASE = "inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border";
+
+const DELIVERY_BADGE: Partial<Record<EmailDeliveryState, string>> = {
+  QUEUED: `${BADGE_BASE} bg-slate-500/10 text-slate-400 border-slate-500/20`,
+  SENDING: `${BADGE_BASE} bg-slate-500/10 text-slate-400 border-slate-500/20`,
+  SENT: `${BADGE_BASE} bg-blue-500/10 text-blue-400 border-blue-500/20`,
+  FAILED: `${BADGE_BASE} bg-red-500/10 text-red-400 border-red-500/20`,
+};
+
+const DELIVERY_LABEL: Partial<Record<EmailDeliveryState, string>> = {
+  QUEUED: "Queued",
+  SENDING: "Sending…",
+  SENT: "Sent Email",
+  FAILED: "Send failed",
+};
+
+const PENDING_BADGE = `${BADGE_BASE} bg-amber-500/10 text-amber-400 border-amber-500/20`;
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -49,9 +73,92 @@ function RequesterInfo({
   );
 }
 
-function ReplyItem({ reply }: { reply: TicketReply }) {
+function ApprovalPanel({
+  ticketId,
+  reply,
+  customerEmail,
+}: {
+  ticketId: string;
+  reply: TicketReply;
+  customerEmail: string | null;
+}) {
+  const [draft, setDraft] = useState(reply.body);
+  const approveMutation = useApproveReply(ticketId);
+  const discardMutation = useDiscardReply(ticketId);
+  const isBusy = approveMutation.isPending || discardMutation.isPending;
+
   return (
-    <article className="rounded-xl border border-border bg-card/45 p-5 shadow-sm hover:border-border/80 transition-all duration-200">
+    <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+      <textarea
+        className="w-full min-h-[100px] rounded-lg border border-input bg-background px-3 py-2 text-sm font-sans disabled:cursor-not-allowed disabled:opacity-50"
+        value={draft}
+        disabled={isBusy}
+        onChange={(e) => setDraft(e.target.value)}
+      />
+      <p className="mt-2 text-xs text-amber-300/80 font-mono">
+        {customerEmail
+          ? `Will be emailed to ${customerEmail}`
+          : "This ticket has no customer email address."}
+      </p>
+
+      {(approveMutation.isError || discardMutation.isError) && (
+        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400 font-mono">
+          {getErrorMessage(approveMutation.error ?? discardMutation.error)}
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-3">
+        <Button
+          type="button"
+          size="sm"
+          id="approve-reply-btn"
+          disabled={isBusy || !customerEmail || !draft.trim()}
+          onClick={() =>
+            approveMutation.mutate({
+              replyId: reply.id,
+              body: draft.trim() === reply.body ? undefined : { body: draft },
+            })
+          }
+        >
+          {approveMutation.isPending ? "Sending…" : "Approve & send"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          id="discard-reply-btn"
+          disabled={isBusy}
+          onClick={() => discardMutation.mutate({ replyId: reply.id })}
+        >
+          Discard
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ReplyItem({
+  ticketId,
+  reply,
+  customerEmail,
+}: {
+  ticketId: string;
+  reply: TicketReply;
+  customerEmail: string | null;
+}) {
+  const retryMutation = useRetrySendReply(ticketId);
+  const isPendingApproval = reply.approval === "PENDING_APPROVAL";
+  const isDiscarded = reply.approval === "DISCARDED";
+  const deliveryBadgeClass = DELIVERY_BADGE[reply.deliveryState];
+  const deliveryLabel = DELIVERY_LABEL[reply.deliveryState];
+
+  return (
+    <article
+      className={cn(
+        "rounded-xl border border-border bg-card/45 p-5 shadow-sm hover:border-border/80 transition-all duration-200",
+        isDiscarded && "opacity-60",
+      )}
+    >
       <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground font-mono">
         <time dateTime={reply.createdAt}>
           {dateFormatter.format(new Date(reply.createdAt))}
@@ -61,15 +168,45 @@ function ReplyItem({ reply }: { reply: TicketReply }) {
             AI Agent
           </span>
         )}
-        {reply.sentEmail && (
-          <span className="inline-flex rounded bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
-            Sent Email
+        {isPendingApproval && <span className={PENDING_BADGE}>Awaiting approval</span>}
+        {isDiscarded && (
+          <span className="inline-flex rounded bg-secondary px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground border border-border">
+            Discarded
+          </span>
+        )}
+        {deliveryBadgeClass && deliveryLabel && (
+          <span className={deliveryBadgeClass} title={reply.deliveryError ?? undefined}>
+            {deliveryLabel}
           </span>
         )}
       </div>
       <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
         {reply.body}
       </p>
+
+      {isPendingApproval && (
+        <ApprovalPanel ticketId={ticketId} reply={reply} customerEmail={customerEmail} />
+      )}
+
+      {reply.deliveryState === "FAILED" && (
+        <div className="mt-3 flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            id="retry-send-btn"
+            disabled={retryMutation.isPending}
+            onClick={() => retryMutation.mutate({ replyId: reply.id })}
+          >
+            {retryMutation.isPending ? "Retrying…" : "Retry send"}
+          </Button>
+          {retryMutation.isError && (
+            <span className="text-xs text-red-400 font-mono">
+              {getErrorMessage(retryMutation.error)}
+            </span>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -311,13 +448,18 @@ export function TicketDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {ticket.replies.map((reply) => (
-                    <ReplyItem key={reply.id} reply={reply} />
+                    <ReplyItem
+                      key={reply.id}
+                      ticketId={ticket.id}
+                      reply={reply}
+                      customerEmail={ticket.fromEmail}
+                    />
                   ))}
                 </div>
               )}
             </section>
 
-            <ReplyForm ticketId={ticket.id} />
+            <ReplyForm ticketId={ticket.id} customerEmail={ticket.fromEmail} />
           </div>
 
           <aside className="mt-6 lg:mt-0 lg:sticky lg:top-6">

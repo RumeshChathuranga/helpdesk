@@ -1,7 +1,10 @@
 import axios from "axios";
-import type { CreateReplyBody, UpdateTicketBody } from "core";
+import type { ApproveReplyBody, CreateReplyBody, UpdateTicketBody } from "core";
 import {
   DEFAULT_TICKET_PAGE_SIZE,
+  type EmailDeliveryState,
+  type ReplyApprovalState,
+  type ReplyDirection,
   type TicketListSort,
 } from "core";
 import type { TicketListItem } from "@/pages/TicketsTable";
@@ -19,6 +22,11 @@ export type TicketReply = {
   sentEmail: boolean;
   externalMessageId: string | null;
   createdAt: string;
+  direction: ReplyDirection;
+  approval: ReplyApprovalState;
+  deliveryState: EmailDeliveryState;
+  sentAt: string | null;
+  deliveryError: string | null;
 };
 
 export type TicketDetail = TicketListItem & {
@@ -138,6 +146,56 @@ export async function createReply(
   }
 
   return body.reply;
+}
+
+function assertValidReply(reply: unknown): asserts reply is TicketReply {
+  if (
+    !reply ||
+    typeof (reply as { id?: unknown }).id !== "string" ||
+    typeof (reply as { body?: unknown }).body !== "string"
+  ) {
+    throw new Error("Invalid response from server");
+  }
+}
+
+export async function approveReply(
+  ticketId: string,
+  replyId: string,
+  body?: ApproveReplyBody,
+): Promise<TicketReply> {
+  const { data } = await axios.post<{ reply: TicketReply }>(
+    `/api/tickets/${ticketId}/replies/${replyId}/approve`,
+    body ?? {},
+    { withCredentials: true },
+  );
+  assertValidReply(data.reply);
+  return data.reply;
+}
+
+export async function discardReply(
+  ticketId: string,
+  replyId: string,
+): Promise<TicketReply> {
+  const { data } = await axios.post<{ reply: TicketReply }>(
+    `/api/tickets/${ticketId}/replies/${replyId}/discard`,
+    {},
+    { withCredentials: true },
+  );
+  assertValidReply(data.reply);
+  return data.reply;
+}
+
+export async function retrySendReply(
+  ticketId: string,
+  replyId: string,
+): Promise<TicketReply> {
+  const { data } = await axios.post<{ reply: TicketReply }>(
+    `/api/tickets/${ticketId}/replies/${replyId}/retry-send`,
+    {},
+    { withCredentials: true },
+  );
+  assertValidReply(data.reply);
+  return data.reply;
 }
 
 export async function polishReply(
