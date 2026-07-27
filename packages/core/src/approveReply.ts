@@ -2,7 +2,8 @@ import { z } from "zod";
 import { FIELD_LIMITS } from "./fieldLimits.js";
 import { sanitizePlainText } from "./sanitizePlainText.js";
 
-export const createReplyBodySchema = z.object({
+export const approveReplyBodySchema = z.object({
+  /** Optional edited draft — agents may tweak the AI's text before sending. */
   body: z
     .string()
     .trim()
@@ -11,9 +12,8 @@ export const createReplyBodySchema = z.object({
       FIELD_LIMITS.body,
       `Reply must be at most ${FIELD_LIMITS.body} characters`,
     )
-    .transform(sanitizePlainText),
-  /** Omitted ⇒ server default: true when the ticket has a fromEmail. */
-  sendEmail: z.boolean().optional(),
+    .transform(sanitizePlainText)
+    .optional(),
 });
 
-export type CreateReplyBody = z.infer<typeof createReplyBodySchema>;
+export type ApproveReplyBody = z.infer<typeof approveReplyBodySchema>;

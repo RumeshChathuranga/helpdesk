@@ -53,6 +53,19 @@ export const inboundEmailSchema = z.object({
       `In-reply-to must be at most ${FIELD_LIMITS.messageId} characters`,
     )
     .optional(),
+  /** The References header, oldest → newest. Used as a threading fallback when inReplyTo doesn't match. */
+  references: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(
+          FIELD_LIMITS.messageId,
+          `Each reference must be at most ${FIELD_LIMITS.messageId} characters`,
+        ),
+    )
+    .max(50)
+    .optional(),
 });
 
 export type InboundEmail = z.infer<typeof inboundEmailSchema>;

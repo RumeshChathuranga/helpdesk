@@ -44,6 +44,18 @@ export {
   type CreateReplyBody,
 } from "./createReply.js";
 export {
+  approveReplyBodySchema,
+  type ApproveReplyBody,
+} from "./approveReply.js";
+export {
+  replyDirectionSchema,
+  replyApprovalStateSchema,
+  emailDeliveryStateSchema,
+  type ReplyDirection,
+  type ReplyApprovalState,
+  type EmailDeliveryState,
+} from "./replyEnums.js";
+export {
   loginBodySchema,
   type LoginBody,
 } from "./login.js";
