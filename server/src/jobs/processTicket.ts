@@ -1,4 +1,3 @@
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
 import { z } from "zod";
 import { FIELD_LIMITS, ticketCategorySchema, type TicketCategory } from "core";
@@ -7,6 +6,7 @@ import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
 import { embedText } from "../lib/embeddings.js";
 import { isEmailSourced } from "../lib/tickets/isEmailSourced.js";
+import { getAiModel } from "../lib/aiClient.js";
 import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
@@ -183,17 +183,16 @@ export async function runProcessTicket({
   aiAgent: { id: string } | null;
   githubToken: string;
 }): Promise<void> {
-  const githubModels = createOpenAICompatible({
-    name: "github-models",
-    apiKey: githubToken,
-    baseURL: "https://models.inference.ai.azure.com",
-  });
+  const model = getAiModel(githubToken);
+  if (!model) {
+    throw new Error("GITHUB_MODELS_TOKEN not set");
+  }
 
   // ── Step 1: Classify ──────────────────────────────────────────────────────
   let category: TicketCategory = "OTHER";
   try {
     const { text: classifyText } = await generateText({
-      model: githubModels("o4-mini"),
+      model,
       system: `You are a helpdesk ticket classifier. Classify the given support ticket into exactly one of these categories:\n${categoryPromptLines}\n\n${UNTRUSTED_CONTENT_RULES}\n\nRespond with ONLY a JSON object in this exact format: {"category": "<CATEGORY>"}\nDo not include any explanation or extra text — only the json object.`,
       prompt: asUntrustedBlock(subject, body),
     });
@@ -257,7 +256,7 @@ export async function runProcessTicket({
 
   try {
     const { text: resolveText } = await generateText({
-      model: githubModels("o4-mini"),
+      model,
       system: `You are a helpful customer support AI for "${BRAND_NAME}". Your job is to resolve support tickets using the knowledge base provided below.
 
 ## Knowledge Base

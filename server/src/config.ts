@@ -7,6 +7,13 @@ export const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL ?? "support@example.com";
 /** Product/brand name surfaced in AI system prompts. */
 export const BRAND_NAME = process.env.BRAND_NAME ?? "Helpdesk";
 
+/** Chat model used for classification, RAG replies, summaries, and reply polishing. */
+export const AI_MODEL = process.env.AI_MODEL ?? "o4-mini";
+
+/** OpenAI-compatible endpoint serving AI_MODEL. */
+export const AI_BASE_URL =
+  process.env.AI_BASE_URL ?? "https://models.inference.ai.azure.com";
+
 /** Outbound email adapter selection. Defaults to a no-op logger everywhere
  *  except production, so dev/test/CI can never open a socket to a real
  *  mail provider by accident. */

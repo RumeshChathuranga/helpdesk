@@ -17,8 +17,8 @@ import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma.js";
 import { requireAgent } from "../middleware/requireAgent.js";
-import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { generateText } from "ai";
+import { getAiModel, AI_TOKEN_MISSING_MESSAGE } from "../lib/aiClient.js";
 import { enqueueProcessTicket } from "../jobs/processTicket.js";
 import { enqueueSendEmail } from "../jobs/sendEmail.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
@@ -409,9 +409,9 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
     return;
   }
 
-  const githubToken = process.env.GITHUB_MODELS_TOKEN;
-  if (!githubToken) {
-    res.status(500).json({ error: "GitHub Models token is not configured" });
+  const model = getAiModel();
+  if (!model) {
+    res.status(500).json({ error: AI_TOKEN_MISSING_MESSAGE });
     return;
   }
 
@@ -424,14 +424,8 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
     ? ticket.fromName.trim().split(" ")[0] // first name only
     : "there";
 
-  const githubModels = createOpenAICompatible({
-    name: "github-models",
-    apiKey: githubToken,
-    baseURL: "https://models.inference.ai.azure.com",
-  });
-
   const { text } = await generateText({
-    model: githubModels("o4-mini"),
+    model,
     system: `You are a professional helpdesk agent assistant. Your job is to polish and improve agent reply drafts while keeping the same intent and tone. 
 Guidelines:
 - Fix grammar, spelling, and punctuation errors
@@ -483,17 +477,11 @@ ticketsRouter.post("/:id/summarize", requireAgent, async (req, res) => {
     return;
   }
 
-  const githubToken = process.env.GITHUB_MODELS_TOKEN;
-  if (!githubToken) {
-    res.status(500).json({ error: "GitHub Models token is not configured" });
+  const model = getAiModel();
+  if (!model) {
+    res.status(500).json({ error: AI_TOKEN_MISSING_MESSAGE });
     return;
   }
-
-  const githubModels = createOpenAICompatible({
-    name: "github-models",
-    apiKey: githubToken,
-    baseURL: "https://models.inference.ai.azure.com",
-  });
 
   const conversationHistory = ticket.replies
     .map((r, i) => {
@@ -510,7 +498,7 @@ ${ticket.body}
 ${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No replies yet."}`;
 
   const { text } = await generateText({
-    model: githubModels("o4-mini"),
+    model,
     system: `You are a concise helpdesk summarization assistant. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
 - The customer's core issue or request
 - Key actions taken or proposed by the support team
