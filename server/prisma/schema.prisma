@@ -132,7 +132,8 @@ model Ticket {
 
   replies Reply[]
 
-  @@index([status])
+  @@index([status, createdAt])
+  @@index([createdAt])
   @@index([category])
   @@index([assignedToId])
 }
