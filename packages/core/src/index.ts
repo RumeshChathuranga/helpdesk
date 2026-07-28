@@ -59,5 +59,15 @@ export {
   loginBodySchema,
   type LoginBody,
 } from "./login.js";
+export {
+  DEFAULT_KNOWLEDGE_PAGE_SIZE,
+  createKnowledgeBodySchema,
+  knowledgeStatusSchema,
+  knowledgeStatusValues,
+  listKnowledgeQuerySchema,
+  type CreateKnowledgeBody,
+  type KnowledgeStatus,
+  type ListKnowledgeQuery,
+} from "./knowledge.js";
 export { FIELD_LIMITS } from "./fieldLimits.js";
 export { sanitizePlainText } from "./sanitizePlainText.js";
