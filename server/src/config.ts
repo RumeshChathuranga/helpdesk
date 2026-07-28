@@ -40,3 +40,42 @@ export const SMTP_PORT = Number(process.env.SMTP_PORT ?? 465);
 export const SMTP_SECURE = (process.env.SMTP_SECURE ?? "true") === "true";
 export const SMTP_USER = process.env.SMTP_USER;
 export const SMTP_PASSWORD = process.env.SMTP_PASSWORD;
+
+// ─── Knowledge base chunking ──────────────────────────────────────────────────
+
+/** Target size of a knowledge chunk. Xenova/all-MiniLM-L6-v2 truncates at 256
+ *  tokens, so this stays below it with headroom for the [CLS]/[SEP] specials —
+ *  anything larger would be silently cut off at embed time. */
+export const KB_CHUNK_MAX_TOKENS = Number(process.env.KB_CHUNK_MAX_TOKENS ?? 200);
+
+/** Tokens repeated from the tail of the previous chunk into the next one, so an
+ *  answer that straddles a chunk boundary is still fully present in one chunk. */
+export const KB_CHUNK_OVERLAP_TOKENS = Number(
+  process.env.KB_CHUNK_OVERLAP_TOKENS ?? 40,
+);
+
+// ─── RAG retrieval ────────────────────────────────────────────────────────────
+
+/** Chunks handed to the resolution prompt after fusion. */
+export const RAG_TOP_K = Number(process.env.RAG_TOP_K ?? 3);
+
+/** Per-arm candidate pool fed into rank fusion. Larger = better recall, more
+ *  work; it only affects the fusion input, not the prompt size. */
+export const RAG_CANDIDATE_POOL = Number(process.env.RAG_CANDIDATE_POOL ?? 20);
+
+/** Cosine-similarity floor a ticket must clear on at least one chunk before the
+ *  AI is allowed to attempt a resolution. Below it the ticket escalates to a
+ *  human — this is a safety gate, not a tuning knob; raise it, don't lower it. */
+export const RAG_SIMILARITY_THRESHOLD = Number(
+  process.env.RAG_SIMILARITY_THRESHOLD ?? 0.75,
+);
+
+/** Character budget for the assembled knowledge context, so neighbour expansion
+ *  cannot grow the system prompt without bound. */
+export const RAG_CONTEXT_CHAR_BUDGET = Number(
+  process.env.RAG_CONTEXT_CHAR_BUDGET ?? 6000,
+);
+
+/** Whether to run the lexical (Postgres full-text) arm alongside the vector arm
+ *  and fuse them. Set to "false" to fall back to pure dense retrieval. */
+export const RAG_HYBRID_SEARCH = (process.env.RAG_HYBRID_SEARCH ?? "true") === "true";
