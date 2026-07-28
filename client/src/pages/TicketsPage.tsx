@@ -2,7 +2,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getErrorMessage } from "@/lib/getErrorMessage";
 import { useTickets } from "@/hooks/useTickets";
 import { TicketFilters } from "./TicketFilters";
-import { TicketsPagination } from "./TicketsPagination";
+import { Pagination } from "@/components/Pagination";
 import { TicketsTable } from "./TicketsTable";
 
 export function TicketsPage() {
@@ -73,11 +73,12 @@ export function TicketsPage() {
             sorting={sorting}
             onSortingChange={setSorting}
           />
-          <TicketsPagination
+          <Pagination
             page={page}
             pageSize={pageSize}
             total={total}
             onPageChange={setPage}
+            ariaLabel="Tickets pagination"
           />
         </>
       )}
