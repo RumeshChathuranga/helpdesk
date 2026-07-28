@@ -10,8 +10,17 @@ async function run() {
   await startBoss();
   await registerEmbedDocumentWorker();
   
+  console.log("Creating a knowledge document...");
+  const document = await prisma.knowledgeDocument.create({
+    data: {
+      title: "Embedding smoke test",
+      text: "This is a sample text for vectorization.",
+    },
+    select: { id: true },
+  });
+
   console.log("Enqueueing embed-document job...");
-  const jobId = await enqueueEmbedDocument({ text: "This is a sample text for vectorization." });
+  const jobId = await enqueueEmbedDocument({ documentId: document.id });
   console.log(`Job enqueued with ID: ${jobId}`);
 
   console.log("Waiting for job to complete...");

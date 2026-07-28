@@ -19,7 +19,8 @@
     "db:seed:test": "bun --env-file .env.test prisma/seed-test.ts",
     "test:unit": "bun test src",
     "test:server": "bun --env-file .env.test src/index.ts",
-    "email:poll": "bun scripts/imapPoller.ts"
+    "email:poll": "bun scripts/imapPoller.ts",
+    "kb:reembed": "bun scripts/reembed-knowledge.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.14",
