@@ -73,11 +73,60 @@ cheaper to maintain than trigram over `body`, but changes match semantics from
 substring to word-stem — that's a product decision (does "20% off" need to
 match "discount"?), not a drop-in performance swap.
 
-## Explicit non-goal, logged as follow-up
+## `KnowledgeChunk` — HNSW + full-text (shipped)
 
-`KnowledgeChunk.embedding` has **no vector index** — the RAG cosine search in
-[processTicket.ts](../server/src/jobs/processTicket.ts) does a full scan of
-every knowledge chunk on every ticket. Fine at current (seed-data) KB size;
-wants an HNSW index (`vector_cosine_ops`) once the knowledge base grows past a
-trivial number of chunks. Out of scope for this pass — noted here so it isn't
-lost.
+Migration `20260728120000_knowledge_documents_and_chunking` closed the
+follow-up that used to live in this section. Two indexes now serve
+[retrieveKnowledge.ts](../server/src/lib/retrieveKnowledge.ts):
+
+| Index | Serves |
+|---|---|
+| `KnowledgeChunk_embedding_hnsw_idx` — `USING hnsw (embedding vector_cosine_ops)` | dense (cosine) candidate search |
+| `KnowledgeChunk_text_fts_idx` — `USING GIN (to_tsvector('english', text))` | lexical candidate search |
+
+**The query had to change before either index could help.** The original RAG
+query ordered by a computed alias:
+
+```sql
+SELECT text, 1 - (embedding <=> $1) AS similarity
+FROM "KnowledgeChunk"
+ORDER BY similarity DESC   -- not index-usable
+LIMIT 3
+```
+
+pgvector's HNSW index only accelerates an `ORDER BY` on the raw distance
+operator. `ORDER BY similarity DESC` forced a full sequential scan +
+in-memory sort of every chunk, on every ticket, regardless of whether an
+index existed. `retrieveKnowledge.ts` rewrites this as an inner query ordered
+by the operator directly, with similarity computed only for the returned
+rows:
+
+```sql
+SELECT c.id, 1 - (c.embedding <=> $1) AS similarity
+FROM (
+  SELECT id, embedding FROM "KnowledgeChunk"
+  ORDER BY embedding <=> $1   -- index-usable
+  LIMIT 20
+) c
+```
+
+Verified with `EXPLAIN ANALYZE` against the test DB: the inner query plans an
+`Index Scan using KnowledgeChunk_embedding_hnsw_idx`, no `Sort` node. The
+lexical query (`to_tsvector('english', text) @@ websearch_to_tsquery(...)`)
+plans a `Bitmap Heap Scan` with `Bitmap Index Scan on
+KnowledgeChunk_text_fts_idx` — it only fires when the query text repeats the
+`to_tsvector('english', text)` expression verbatim, so keep the two in sync
+if either changes.
+
+**Recall/latency knob:** `hnsw.ef_search` (session-level, default 40) trades
+recall against candidate-scan cost. Not currently overridden — `RAG_TOP_K`
+(3) and `RAG_CANDIDATE_POOL` (20, see [config.ts](../server/src/config.ts))
+give enough headroom at current KB size. Revisit if recall complaints show up
+once the KB is large enough for approximate search to matter.
+
+**Prisma-drift caveat:** both indexes are declared only in migration SQL —
+`schema.prisma` cannot express `USING hnsw` or an expression index, so a
+future `prisma migrate dev` may propose a migration that drops them. If that
+happens, delete those lines from the generated migration rather than letting
+it apply; per [CLAUDE.md](../CLAUDE.md), `db:migrate` falls back to
+`db:migrate:deploy` on P3014 here anyway.
