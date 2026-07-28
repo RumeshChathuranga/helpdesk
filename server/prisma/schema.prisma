@@ -54,6 +54,16 @@ enum EmailDeliveryState {
   FAILED
 }
 
+/// Lifecycle of a knowledge document's chunk+embed pass. A document row exists
+/// as soon as an admin submits it, so the UI can show it immediately; the
+/// embed-document worker moves it PENDING -> PROCESSING -> READY (or FAILED).
+enum KnowledgeStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -165,8 +175,40 @@ model Reply {
   @@index([ticketId, approval])
 }
 
+/// An admin-authored knowledge base article. `text` is the full source; the
+/// embed-document worker splits it into KnowledgeChunk rows sized to the
+/// embedding model's 256-token window. Deleting a document deletes its chunks.
+model KnowledgeDocument {
+  id         String           @id @default(cuid())
+  title      String
+  text       String
+  status     KnowledgeStatus  @default(PENDING)
+  /// Last failure reason, set alongside status = FAILED.
+  error      String?
+  chunkCount Int              @default(0)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  chunks     KnowledgeChunk[]
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// One retrievable passage of a KnowledgeDocument. Written only through raw SQL
+/// — `embedding` is Unsupported(), so the typed client cannot create these rows.
+/// Two indexes serving RAG live in migration SQL only (Prisma cannot express
+/// either): an HNSW index on `embedding` and a GIN index on
+/// to_tsvector('english', text). See docs/db-indexing.md.
 model KnowledgeChunk {
-  id        String                      @id @default(cuid())
-  text      String
-  embedding Unsupported("vector(384)")
+  id         String                    @id @default(cuid())
+  documentId String
+  chunkIndex Int
+  text       String
+  embedding  Unsupported("vector(384)")
+  createdAt  DateTime                  @default(now())
+
+  document KnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, chunkIndex])
+  @@index([documentId])
 }
