@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -6,32 +7,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/getErrorMessage";
 import { useKnowledge } from "@/hooks/useKnowledge";
-import type { KnowledgeChunk } from "@/lib/knowledge";
+import type { KnowledgeDocumentSummary } from "@/lib/knowledge";
 
-interface DeleteKnowledgeDialogProps {
+type DeleteKnowledgeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  chunk: KnowledgeChunk | null;
-}
+  document: KnowledgeDocumentSummary | null;
+};
 
 export function DeleteKnowledgeDialog({
   open,
   onOpenChange,
-  chunk,
+  // Aliased so it doesn't shadow the global `document`.
+  document: doc,
 }: DeleteKnowledgeDialogProps) {
   const { deleteKnowledge, isDeleting } = useKnowledge();
+  const [error, setError] = useState<string | null>(null);
 
-  if (!chunk) return null;
+  if (!doc) return null;
 
   async function handleDelete() {
+    if (!doc) return;
+    setError(null);
     try {
-      await deleteKnowledge(chunk!.id);
+      await deleteKnowledge(doc.id);
       onOpenChange(false);
-    } catch (err) {
-      console.error(err);
-      // Could add a toast here
+    } catch (e) {
+      setError(getErrorMessage(e));
     }
   }
 
@@ -39,22 +45,34 @@ export function DeleteKnowledgeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Knowledge Chunk</DialogTitle>
+          <DialogTitle>Delete knowledge document</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete this knowledge chunk? The AI will no longer use it for context when answering tickets.
+            This deletes “{doc.title}” and its {doc.chunkCount} embedded{" "}
+            {doc.chunkCount === 1 ? "passage" : "passages"}. The AI will no
+            longer use it as context when answering tickets.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="bg-muted p-4 rounded-md text-sm text-muted-foreground overflow-hidden">
-          <p className="truncate line-clamp-3 whitespace-pre-wrap">{chunk.text}</p>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
             Cancel
           </Button>
-          <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-            {isDeleting ? "Deleting..." : "Delete Chunk"}
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Deleting…" : "Delete document"}
           </Button>
         </DialogFooter>
       </DialogContent>
