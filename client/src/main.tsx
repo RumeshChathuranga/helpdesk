@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import "./index.css";
 import { App } from "./App.tsx";
+import { AppErrorFallback } from "./components/AppErrorFallback.tsx";
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
 if (sentryDsn) {
@@ -42,8 +43,13 @@ if (!root) throw new Error("Root element not found");
 
 createRoot(root).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <Sentry.ErrorBoundary
+      fallback={(props) => <AppErrorFallback {...props} />}
+      showDialog={false}
+    >
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </Sentry.ErrorBoundary>
   </StrictMode>
 );
