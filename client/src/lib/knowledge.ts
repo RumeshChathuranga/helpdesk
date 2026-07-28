@@ -1,4 +1,4 @@
-import axios from "axios";
+import { api } from "@/lib/api";
 
 export type KnowledgeChunk = {
   id: string;
@@ -12,9 +12,7 @@ export const knowledgeKeys = {
 };
 
 export async function fetchKnowledge(): Promise<KnowledgeChunk[]> {
-  const { data } = await axios.get<KnowledgeResponse>("/api/knowledge", {
-    withCredentials: true,
-  });
+  const { data } = await api.get<KnowledgeResponse>("/knowledge");
   if (!Array.isArray(data.chunks)) {
     throw new Error("Invalid response from server");
   }
@@ -22,13 +20,9 @@ export async function fetchKnowledge(): Promise<KnowledgeChunk[]> {
 }
 
 export async function addKnowledge(text: string): Promise<void> {
-  await axios.post(
-    "/api/knowledge",
-    { text },
-    { withCredentials: true }
-  );
+  await api.post("/knowledge", { text });
 }
 
 export async function deleteKnowledge(id: string): Promise<void> {
-  await axios.delete(`/api/knowledge/${id}`, { withCredentials: true });
+  await api.delete(`/knowledge/${id}`);
 }

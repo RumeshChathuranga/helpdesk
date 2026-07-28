@@ -1,20 +1,17 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import { ReplyForm } from "./ReplyForm";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      post: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    post: vi.fn(),
+  },
+}));
 
-const mockedPost = vi.mocked(axios.post);
+const mockedPost = vi.mocked(api.post);
 
 const ticketId = "t1";
 
@@ -89,9 +86,8 @@ describe("ReplyForm", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies",
+        "/tickets/t1/replies",
         { body: "Thanks for reaching out.", sendEmail: true },
-        { withCredentials: true },
       );
     });
   });
@@ -111,9 +107,8 @@ describe("ReplyForm", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies",
+        "/tickets/t1/replies",
         { body: "Thanks for reaching out.", sendEmail: false },
-        { withCredentials: true },
       );
     });
   });
@@ -136,9 +131,8 @@ describe("ReplyForm", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies",
+        "/tickets/t1/replies",
         { body: "Internal note.", sendEmail: false },
-        { withCredentials: true },
       );
     });
   });
@@ -247,9 +241,8 @@ describe("ReplyForm — Polish button", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/polish-reply",
+        "/tickets/t1/polish-reply",
         { draft: "pleas help me" },
-        { withCredentials: true },
       );
     });
   });

@@ -1,21 +1,18 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import { EditUserDialog } from "./EditUserDialog";
 import type { UserListItem } from "./UsersTable";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      patch: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    patch: vi.fn(),
+  },
+}));
 
-const mockedPatch = vi.mocked(axios.patch);
+const mockedPatch = vi.mocked(api.patch);
 
 const sampleUser: UserListItem = {
   id: "u-edit",
@@ -109,13 +106,12 @@ describe("EditUserDialog", () => {
 
     await waitFor(() => {
       expect(mockedPatch).toHaveBeenCalledWith(
-        "/api/users/u-edit",
+        "/users/u-edit",
         expect.objectContaining({
           name: "Bob Updated",
           email: "bob@example.com",
           password: "",
         }),
-        { withCredentials: true },
       );
     });
 
@@ -140,11 +136,10 @@ describe("EditUserDialog", () => {
 
     await waitFor(() => {
       expect(mockedPatch).toHaveBeenCalledWith(
-        "/api/users/u-edit",
+        "/users/u-edit",
         expect.objectContaining({
           password: "newpass123",
         }),
-        { withCredentials: true },
       );
     });
   });

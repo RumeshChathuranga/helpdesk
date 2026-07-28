@@ -1,4 +1,4 @@
-import axios from "axios";
+import { api } from "@/lib/api";
 import type { ApproveReplyBody, CreateReplyBody, UpdateTicketBody } from "core";
 import {
   DEFAULT_TICKET_PAGE_SIZE,
@@ -84,7 +84,7 @@ type AgentsResponse = { users: AgentListItem[] };
 export async function fetchTickets(
   params: TicketsListParams,
 ): Promise<TicketsListResult> {
-  const { data: body } = await axios.get<TicketsResponse>("/api/tickets", {
+  const { data: body } = await api.get<TicketsResponse>("/tickets", {
     params: {
       sort: params.sort,
       page: params.page,
@@ -93,7 +93,6 @@ export async function fetchTickets(
       ...(params.category ? { category: params.category } : {}),
       ...(params.search ? { search: params.search } : {}),
     },
-    withCredentials: true,
   });
 
   if (
@@ -109,9 +108,8 @@ export async function fetchTickets(
 }
 
 export async function fetchTicket(id: string): Promise<TicketDetail> {
-  const { data: body } = await axios.get<TicketDetailResponse>(
-    `/api/tickets/${id}`,
-    { withCredentials: true },
+  const { data: body } = await api.get<TicketDetailResponse>(
+    `/tickets/${id}`,
   );
 
   if (
@@ -131,10 +129,9 @@ export async function createReply(
   ticketId: string,
   data: CreateReplyBody,
 ): Promise<TicketReply> {
-  const { data: body } = await axios.post<{ reply: TicketReply }>(
-    `/api/tickets/${ticketId}/replies`,
+  const { data: body } = await api.post<{ reply: TicketReply }>(
+    `/tickets/${ticketId}/replies`,
     data,
-    { withCredentials: true },
   );
 
   if (
@@ -163,10 +160,9 @@ export async function approveReply(
   replyId: string,
   body?: ApproveReplyBody,
 ): Promise<TicketReply> {
-  const { data } = await axios.post<{ reply: TicketReply }>(
-    `/api/tickets/${ticketId}/replies/${replyId}/approve`,
+  const { data } = await api.post<{ reply: TicketReply }>(
+    `/tickets/${ticketId}/replies/${replyId}/approve`,
     body ?? {},
-    { withCredentials: true },
   );
   assertValidReply(data.reply);
   return data.reply;
@@ -176,10 +172,9 @@ export async function discardReply(
   ticketId: string,
   replyId: string,
 ): Promise<TicketReply> {
-  const { data } = await axios.post<{ reply: TicketReply }>(
-    `/api/tickets/${ticketId}/replies/${replyId}/discard`,
+  const { data } = await api.post<{ reply: TicketReply }>(
+    `/tickets/${ticketId}/replies/${replyId}/discard`,
     {},
-    { withCredentials: true },
   );
   assertValidReply(data.reply);
   return data.reply;
@@ -189,10 +184,9 @@ export async function retrySendReply(
   ticketId: string,
   replyId: string,
 ): Promise<TicketReply> {
-  const { data } = await axios.post<{ reply: TicketReply }>(
-    `/api/tickets/${ticketId}/replies/${replyId}/retry-send`,
+  const { data } = await api.post<{ reply: TicketReply }>(
+    `/tickets/${ticketId}/replies/${replyId}/retry-send`,
     {},
-    { withCredentials: true },
   );
   assertValidReply(data.reply);
   return data.reply;
@@ -202,10 +196,9 @@ export async function polishReply(
   ticketId: string,
   draft: string,
 ): Promise<string> {
-  const { data: body } = await axios.post<{ polished: string }>(
-    `/api/tickets/${ticketId}/polish-reply`,
+  const { data: body } = await api.post<{ polished: string }>(
+    `/tickets/${ticketId}/polish-reply`,
     { draft },
-    { withCredentials: true },
   );
 
   if (typeof body.polished !== "string") {
@@ -216,10 +209,9 @@ export async function polishReply(
 }
 
 export async function summarizeTicket(ticketId: string): Promise<string> {
-  const { data: body } = await axios.post<{ summary: string }>(
-    `/api/tickets/${ticketId}/summarize`,
+  const { data: body } = await api.post<{ summary: string }>(
+    `/tickets/${ticketId}/summarize`,
     {},
-    { withCredentials: true },
   );
 
   if (typeof body.summary !== "string") {
@@ -230,9 +222,7 @@ export async function summarizeTicket(ticketId: string): Promise<string> {
 }
 
 export async function fetchAgents(): Promise<AgentListItem[]> {
-  const { data: body } = await axios.get<AgentsResponse>("/api/users/agents", {
-    withCredentials: true,
-  });
+  const { data: body } = await api.get<AgentsResponse>("/users/agents");
 
   if (!Array.isArray(body.users)) {
     throw new Error("Invalid response from server");
@@ -245,10 +235,9 @@ export async function updateTicket(
   id: string,
   data: UpdateTicketBody,
 ): Promise<TicketListItem> {
-  const { data: body } = await axios.patch<{ ticket: TicketListItem }>(
-    `/api/tickets/${id}`,
+  const { data: body } = await api.patch<{ ticket: TicketListItem }>(
+    `/tickets/${id}`,
     data,
-    { withCredentials: true },
   );
 
   if (!body.ticket || typeof body.ticket.id !== "string") {
@@ -261,8 +250,6 @@ export async function updateTicket(
 export { DEFAULT_TICKET_PAGE_SIZE };
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const { data } = await axios.get<DashboardStats>("/api/tickets/stats", {
-    withCredentials: true,
-  });
+  const { data } = await api.get<DashboardStats>("/tickets/stats");
   return data;
 }

@@ -4,7 +4,7 @@ import {
   addKnowledge,
   deleteKnowledge,
   knowledgeKeys,
-} from "../lib/knowledge";
+} from "@/lib/knowledge";
 
 export function useKnowledge() {
   const queryClient = useQueryClient();

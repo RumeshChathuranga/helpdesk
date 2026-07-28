@@ -1,4 +1,4 @@
-import axios from "axios";
+import { api } from "@/lib/api";
 import type { CreateUserBody, UpdateUserBody } from "core";
 import type { UserListItem } from "@/pages/UsersTable";
 
@@ -11,9 +11,7 @@ export const userKeys = {
 };
 
 export async function fetchUsers(): Promise<UserListItem[]> {
-  const { data } = await axios.get<UsersResponse>("/api/users", {
-    withCredentials: true,
-  });
+  const { data } = await api.get<UsersResponse>("/users");
   if (!Array.isArray(data.users)) {
     throw new Error("Invalid response from server");
   }
@@ -21,11 +19,7 @@ export async function fetchUsers(): Promise<UserListItem[]> {
 }
 
 export async function createUser(data: CreateUserBody): Promise<UserListItem> {
-  const { data: body } = await axios.post<CreateUserResponse>(
-    "/api/users",
-    data,
-    { withCredentials: true },
-  );
+  const { data: body } = await api.post<CreateUserResponse>("/users", data);
   if (!body.user || typeof body.user.id !== "string") {
     throw new Error("Invalid response from server");
   }
@@ -36,10 +30,9 @@ export async function updateUser(
   id: string,
   data: UpdateUserBody,
 ): Promise<UserListItem> {
-  const { data: body } = await axios.patch<EditUserResponse>(
-    `/api/users/${id}`,
+  const { data: body } = await api.patch<EditUserResponse>(
+    `/users/${id}`,
     data,
-    { withCredentials: true },
   );
   if (!body.user || typeof body.user.id !== "string") {
     throw new Error("Invalid response from server");
@@ -48,5 +41,5 @@ export async function updateUser(
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  await axios.delete(`/api/users/${id}`, { withCredentials: true });
+  await api.delete(`/users/${id}`);
 }

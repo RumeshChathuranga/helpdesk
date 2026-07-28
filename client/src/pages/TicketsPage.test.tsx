@@ -1,21 +1,18 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import { TicketsPage } from "./TicketsPage";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      get: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    get: vi.fn(),
+  },
+}));
 
-const mockedGet = vi.mocked(axios.get);
+const mockedGet = vi.mocked(api.get);
 
 const listTickets = [
   {
@@ -153,9 +150,8 @@ describe("TicketsPage", () => {
       expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
     });
 
-    expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+    expect(mockedGet).toHaveBeenCalledWith("/tickets", {
       params: { sort: "createdAt_desc", page: 1, pageSize: 10 },
-      withCredentials: true,
     });
   });
 
@@ -171,9 +167,8 @@ describe("TicketsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Subject" }));
 
     await waitFor(() => {
-      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: { sort: "subject_asc", page: 1, pageSize: 10 },
-        withCredentials: true,
       });
     });
   });
@@ -190,9 +185,8 @@ describe("TicketsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Created" }));
 
     await waitFor(() => {
-      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: { sort: "createdAt_asc", page: 1, pageSize: 10 },
-        withCredentials: true,
       });
     });
   });
@@ -211,9 +205,8 @@ describe("TicketsPage", () => {
     });
 
     await waitFor(() => {
-      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: { sort: "createdAt_desc", status: "OPEN", page: 1, pageSize: 10 },
-        withCredentials: true,
       });
     });
   });
@@ -232,14 +225,13 @@ describe("TicketsPage", () => {
     });
 
     await waitFor(() => {
-      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: {
           sort: "createdAt_desc",
           category: "BILLING",
           page: 1,
           pageSize: 10,
         },
-        withCredentials: true,
       });
     });
   });
@@ -261,14 +253,13 @@ describe("TicketsPage", () => {
 
     await waitFor(
       () => {
-        expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+        expect(mockedGet).toHaveBeenCalledWith("/tickets", {
           params: {
             sort: "createdAt_desc",
             search: "password",
             page: 1,
             pageSize: 10,
           },
-          withCredentials: true,
         });
       },
       { timeout: 1000 },
@@ -294,9 +285,8 @@ describe("TicketsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await waitFor(() => {
-      expect(mockedGet).toHaveBeenCalledWith("/api/tickets", {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: { sort: "createdAt_desc", page: 2, pageSize: 10 },
-        withCredentials: true,
       });
     });
   });

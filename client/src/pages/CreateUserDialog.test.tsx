@@ -1,20 +1,17 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import { CreateUserDialog } from "./CreateUserDialog";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      post: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    post: vi.fn(),
+  },
+}));
 
-const mockedPost = vi.mocked(axios.post);
+const mockedPost = vi.mocked(api.post);
 
 beforeEach(() => {
   mockedPost.mockReset();
@@ -137,13 +134,12 @@ describe("CreateUserDialog", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/users",
+        "/users",
         {
           name: "New Agent",
           email: "new@example.com",
           password: "password123",
         },
-        { withCredentials: true },
       );
     });
 

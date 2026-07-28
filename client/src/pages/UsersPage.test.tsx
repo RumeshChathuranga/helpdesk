@@ -1,26 +1,23 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import { UsersPage } from "./UsersPage";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      get: vi.fn(),
-      post: vi.fn(),
-      patch: vi.fn(),
-      delete: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    get: vi.fn(),
+    post: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+  },
+}));
 
-const mockedGet = vi.mocked(axios.get);
-const mockedPost = vi.mocked(axios.post);
-const mockedPatch = vi.mocked(axios.patch);
-const mockedDelete = vi.mocked(axios.delete);
+const mockedGet = vi.mocked(api.get);
+const mockedPost = vi.mocked(api.post);
+const mockedPatch = vi.mocked(api.patch);
+const mockedDelete = vi.mocked(api.delete);
 
 const listUsers = [
   {
@@ -208,9 +205,7 @@ describe("UsersPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
 
     await waitFor(() => {
-      expect(mockedDelete).toHaveBeenCalledWith("/api/users/u2", {
-        withCredentials: true,
-      });
+      expect(mockedDelete).toHaveBeenCalledWith("/users/u2");
     });
 
     await waitFor(() => {

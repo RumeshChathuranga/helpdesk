@@ -1,26 +1,23 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
+import { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { renderWithProviders } from "@/test/render";
+import { api } from "@/lib/api";
 import type { TicketDetail } from "@/lib/tickets";
 import { TicketDetailPage } from "./TicketDetailPage";
 
-vi.mock("axios", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("axios")>();
-  return {
-    ...actual,
-    default: Object.assign(actual.default, {
-      get: vi.fn(),
-      patch: vi.fn(),
-      post: vi.fn(),
-    }),
-  };
-});
+vi.mock("@/lib/api", () => ({
+  api: {
+    get: vi.fn(),
+    patch: vi.fn(),
+    post: vi.fn(),
+  },
+}));
 
-const mockedGet = vi.mocked(axios.get);
-const mockedPatch = vi.mocked(axios.patch);
-const mockedPost = vi.mocked(axios.post);
+const mockedGet = vi.mocked(api.get);
+const mockedPatch = vi.mocked(api.patch);
+const mockedPost = vi.mocked(api.post);
 
 const agentsList = [
   { id: "agent-1", name: "Support Agent", email: "agent@example.com" },
@@ -63,10 +60,10 @@ function mockTicketDetailResponses(
   agents = agentsList,
 ) {
   mockedGet.mockImplementation((url: string) => {
-    if (url === "/api/tickets/t1") {
+    if (url === "/tickets/t1") {
       return Promise.resolve({ data: { ticket } });
     }
-    if (url === "/api/users/agents") {
+    if (url === "/users/agents") {
       return Promise.resolve({ data: { users: agents } });
     }
     return Promise.reject(new Error(`Unexpected GET ${url}`));
@@ -129,10 +126,10 @@ describe("TicketDetailPage", () => {
       config: {} as InternalAxiosRequestConfig,
     };
     mockedGet.mockImplementation((url: string) => {
-      if (url === "/api/tickets/t1") {
+      if (url === "/tickets/t1") {
         return Promise.reject(err);
       }
-      if (url === "/api/users/agents") {
+      if (url === "/users/agents") {
         return Promise.resolve({ data: { users: agentsList } });
       }
       return Promise.reject(new Error(`Unexpected GET ${url}`));
@@ -157,10 +154,10 @@ describe("TicketDetailPage", () => {
       config: {} as InternalAxiosRequestConfig,
     };
     mockedGet.mockImplementation((url: string) => {
-      if (url === "/api/tickets/t1") {
+      if (url === "/tickets/t1") {
         return Promise.reject(err);
       }
-      if (url === "/api/users/agents") {
+      if (url === "/users/agents") {
         return Promise.resolve({ data: { users: agentsList } });
       }
       return Promise.reject(new Error(`Unexpected GET ${url}`));
@@ -209,13 +206,12 @@ describe("TicketDetailPage", () => {
 
     await waitFor(() => {
       expect(mockedPatch).toHaveBeenCalledWith(
-        "/api/tickets/t1",
+        "/tickets/t1",
         {
           status: "IN_PROGRESS",
           category: "GENERAL",
           assignedToId: "agent-1",
         },
-        { withCredentials: true },
       );
     });
   });
@@ -262,9 +258,8 @@ describe("TicketDetailPage", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies/r2/approve",
+        "/tickets/t1/replies/r2/approve",
         {},
-        { withCredentials: true },
       );
     });
   });
@@ -298,9 +293,8 @@ describe("TicketDetailPage", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies/r2/discard",
+        "/tickets/t1/replies/r2/discard",
         {},
-        { withCredentials: true },
       );
     });
   });
@@ -334,9 +328,8 @@ describe("TicketDetailPage", () => {
 
     await waitFor(() => {
       expect(mockedPost).toHaveBeenCalledWith(
-        "/api/tickets/t1/replies/r3/retry-send",
+        "/tickets/t1/replies/r3/retry-send",
         {},
-        { withCredentials: true },
       );
     });
   });
