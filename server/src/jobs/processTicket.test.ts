@@ -21,7 +21,8 @@ describe("runProcessTicket", () => {
   let runProcessTicket: typeof import("./processTicket.js").runProcessTicket;
   let aiAgentId: string;
   const createdTicketIds: string[] = [];
-  const createdChunkIds: string[] = [];
+  // Chunks cascade with their document, so only document ids need tracking.
+  const createdDocumentIds: string[] = [];
 
   beforeAll(async () => {
     ({ runProcessTicket } = await import("./processTicket.js"));
@@ -51,11 +52,11 @@ describe("runProcessTicket", () => {
       createdTicketIds.length = 0;
     }
 
-    if (createdChunkIds.length > 0) {
-      await prisma.$executeRaw`
-        DELETE FROM "KnowledgeChunk" WHERE id = ANY(${createdChunkIds})
-      `;
-      createdChunkIds.length = 0;
+    if (createdDocumentIds.length > 0) {
+      await prisma.knowledgeDocument.deleteMany({
+        where: { id: { in: [...createdDocumentIds] } },
+      });
+      createdDocumentIds.length = 0;
     }
   });
 
@@ -68,10 +69,10 @@ describe("runProcessTicket", () => {
         where: { id: { in: [...createdTicketIds] } },
       });
     }
-    if (createdChunkIds.length > 0) {
-      await prisma.$executeRaw`
-        DELETE FROM "KnowledgeChunk" WHERE id = ANY(${createdChunkIds})
-      `;
+    if (createdDocumentIds.length > 0) {
+      await prisma.knowledgeDocument.deleteMany({
+        where: { id: { in: [...createdDocumentIds] } },
+      });
     }
   });
 
@@ -94,17 +95,24 @@ describe("runProcessTicket", () => {
     return ticket;
   }
 
+  /** Creates a knowledge document plus one chunk whose embedding matches the
+   *  stubbed query vector exactly (cosine similarity 1.0). */
   async function insertMatchingKnowledgeChunk(text: string): Promise<string> {
+    const document = await prisma.knowledgeDocument.create({
+      data: { title: text.slice(0, 60), text, status: "READY", chunkCount: 1 },
+      select: { id: true },
+    });
+    createdDocumentIds.push(document.id);
+
     const rows = await prisma.$queryRaw<{ id: string }[]>`
-      INSERT INTO "KnowledgeChunk" ("id", "text", "embedding")
-      VALUES (gen_random_uuid()::text, ${text}, ${FIXED_VECTOR_STRING}::vector)
+      INSERT INTO "KnowledgeChunk" ("id", "documentId", "chunkIndex", "text", "embedding")
+      VALUES (gen_random_uuid()::text, ${document.id}, 0, ${text}, ${FIXED_VECTOR_STRING}::vector)
       RETURNING id
     `;
     const id = rows[0]?.id;
     if (!id) {
       throw new Error("Failed to insert test KnowledgeChunk fixture");
     }
-    createdChunkIds.push(id);
     return id;
   }
 

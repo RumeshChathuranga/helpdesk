@@ -4,7 +4,7 @@ import { FIELD_LIMITS, ticketCategorySchema, type TicketCategory } from "core";
 import type { Job } from "pg-boss";
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
-import { embedText } from "../lib/embeddings.js";
+import { retrieveKnowledge } from "../lib/retrieveKnowledge.js";
 import { isEmailSourced } from "../lib/tickets/isEmailSourced.js";
 import { getAiModel } from "../lib/aiClient.js";
 import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
@@ -65,8 +65,6 @@ const resolutionSchema = z.object({
   resolved: z.boolean(),
   reply: z.string().optional(),
 });
-
-// ─── Knowledge base loader (Removed in favor of RAG) ──────────────────────────
 
 // ─── Recovery helper ───────────────────────────────────────────────────────────
 
@@ -222,26 +220,24 @@ export async function runProcessTicket({
   // ── Step 2: Attempt KB resolution using RAG ────────────────────────────────
   let knowledgeBase: string;
   try {
-    const textToEmbed = `Subject: ${subject}\n\nBody:\n${body}`;
+    const { contextText, chunks } = await retrieveKnowledge(
+      `Subject: ${subject}\n\nBody:\n${body}`,
+    );
 
-    // Generate embedding
-    const { vectorString } = await embedText(textToEmbed);
-
-    // Retrieve similar chunks
-    const chunks = await prisma.$queryRaw<{ text: string, similarity: number }[]>`
-      SELECT text, 1 - (embedding <=> ${vectorString}::vector) AS similarity
-      FROM "KnowledgeChunk"
-      WHERE 1 - (embedding <=> ${vectorString}::vector) > 0.75
-      ORDER BY similarity DESC
-      LIMIT 3
-    `;
-
-    if (chunks.length === 0) {
+    if (!contextText) {
       console.info(`[process-ticket] No relevant KB chunks found for ${ticketId}, escalating to OPEN.`);
       await escalateToOpen(ticketId, aiAgent?.id);
       return;
     }
-    knowledgeBase = chunks.map(c => c.text).join("\n\n---\n\n");
+
+    console.info(
+      `[process-ticket] Retrieved ${chunks.length} chunk(s) for ${ticketId}: ` +
+        chunks
+          .map((c) => `${c.id}(sim=${c.similarity.toFixed(3)},rrf=${c.score.toFixed(4)})`)
+          .join(", "),
+    );
+
+    knowledgeBase = contextText;
   } catch (err) {
     console.warn(
       `[process-ticket] RAG retrieval failed for ${ticketId}, escalating to OPEN:`,
