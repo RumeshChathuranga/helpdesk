@@ -20,7 +20,9 @@
     "test:unit": "bun test src",
     "test:server": "bun --env-file .env.test src/index.ts",
     "email:poll": "bun scripts/imapPoller.ts",
-    "kb:reembed": "bun scripts/reembed-knowledge.ts"
+    "kb:reembed": "bun scripts/reembed-knowledge.ts",
+    "kb:import": "bun scripts/import-knowledge.ts",
+    "kb:calibrate": "bun scripts/kb-calibrate.ts"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.14",
