@@ -23,6 +23,7 @@ import { enqueueProcessTicket } from "../jobs/processTicket.js";
 import { enqueueSendEmail } from "../jobs/sendEmail.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
 import { AI_AGENT_EMAIL, SUPPORT_EMAIL } from "../config.js";
+import { PROMPT_TAG } from "../lib/ai/promptTags.js";
 
 function parseRouteId(
   id: string | string[] | undefined,
@@ -426,7 +427,7 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
 
   const { text } = await generateText({
     model,
-    system: `You are a professional helpdesk agent assistant. Your job is to polish and improve agent reply drafts while keeping the same intent and tone. 
+    system: `You are a professional ${PROMPT_TAG.polish}. Your job is to polish and improve agent reply drafts while keeping the same intent and tone.
 Guidelines:
 - Fix grammar, spelling, and punctuation errors
 - Make the language clearer and more professional
@@ -499,7 +500,7 @@ ${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No re
 
   const { text } = await generateText({
     model,
-    system: `You are a concise helpdesk summarization assistant. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
+    system: `You are a concise ${PROMPT_TAG.summarize}. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
 - The customer's core issue or request
 - Key actions taken or proposed by the support team
 - Current status or outstanding next steps

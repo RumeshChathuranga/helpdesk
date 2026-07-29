@@ -1,4 +1,5 @@
 import { mock } from "bun:test";
+import { PROMPT_TAG } from "../lib/ai/promptTags.js";
 
 /**
  * Single shared `ai` / `@ai-sdk/openai-compatible` mock, imported by every
@@ -34,20 +35,24 @@ export function resetAiMockState(): void {
 
 mock.module("ai", () => ({
   generateText: async ({ system }: { system?: string }) => {
-    if (system?.includes("ticket classifier")) {
+    if (system?.includes(PROMPT_TAG.classify)) {
       return {
         text: JSON.stringify({ category: aiMockState.classificationCategory }),
       };
     }
-    if (system?.includes("resolve support tickets using the knowledge base")) {
+    if (system?.includes(PROMPT_TAG.resolve)) {
       aiMockState.resolutionCallCount += 1;
       return { text: JSON.stringify(aiMockState.resolution) };
     }
-    if (system?.includes("summarization assistant")) {
+    if (system?.includes(PROMPT_TAG.summarize)) {
       return { text: aiMockState.summaryText };
     }
-    // Default: polish-reply (or anything else that just needs polished text back)
-    return { text: aiMockState.polishedText };
+    if (system?.includes(PROMPT_TAG.polish)) {
+      return { text: aiMockState.polishedText };
+    }
+    throw new Error(
+      `mockAi: unrecognised system prompt — add a PROMPT_TAG branch. Got: ${system?.slice(0, 120)}`,
+    );
   },
 }));
 

@@ -8,6 +8,7 @@ import { retrieveKnowledge } from "../lib/retrieveKnowledge.js";
 import { isEmailSourced } from "../lib/tickets/isEmailSourced.js";
 import { getAiModel } from "../lib/aiClient.js";
 import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
+import { PROMPT_TAG } from "../lib/ai/promptTags.js";
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -191,7 +192,7 @@ export async function runProcessTicket({
   try {
     const { text: classifyText } = await generateText({
       model,
-      system: `You are a helpdesk ticket classifier. Classify the given support ticket into exactly one of these categories:\n${categoryPromptLines}\n\n${UNTRUSTED_CONTENT_RULES}\n\nRespond with ONLY a JSON object in this exact format: {"category": "<CATEGORY>"}\nDo not include any explanation or extra text — only the json object.`,
+      system: `You are a ${PROMPT_TAG.classify}. Classify the given support ticket into exactly one of these categories:\n${categoryPromptLines}\n\n${UNTRUSTED_CONTENT_RULES}\n\nRespond with ONLY a JSON object in this exact format: {"category": "<CATEGORY>"}\nDo not include any explanation or extra text — only the json object.`,
       prompt: asUntrustedBlock(subject, body),
     });
 
@@ -253,7 +254,7 @@ export async function runProcessTicket({
   try {
     const { text: resolveText } = await generateText({
       model,
-      system: `You are a helpful customer support AI for "${BRAND_NAME}". Your job is to resolve support tickets using the knowledge base provided below.
+      system: `You are a helpful customer support AI for "${BRAND_NAME}". Your job is to ${PROMPT_TAG.resolve} provided below.
 
 ## Knowledge Base
 ${knowledgeBase}
