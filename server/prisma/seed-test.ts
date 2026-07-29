@@ -1,4 +1,4 @@
-import { Role } from "@prisma/client";
+import { Role, type TicketCategory } from "@prisma/client";
 import { signUpEmailInternal } from "../src/lib/internalEmailSignUp.js";
 import { prisma } from "../src/lib/prisma.js";
 import { AI_AGENT_EMAIL } from "../src/config.js";
@@ -36,7 +36,7 @@ async function ensureSampleTicket(data: {
   subject: string;
   body: string;
   status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
-  category: "BILLING" | "TECHNICAL" | "GENERAL" | "FEATURE_REQUEST" | "BUG" | "OTHER";
+  category: TicketCategory;
   fromEmail: string;
   fromName: string;
   createdAt: Date;
@@ -64,7 +64,7 @@ async function seedSampleTickets() {
     subject: "Cannot reset password",
     body: "I tried the forgot-password link but never received an email.",
     status: "OPEN",
-    category: "TECHNICAL",
+    category: "ACCOUNT_ACCESS",
     fromEmail: "customer@example.com",
     fromName: "Jane Customer",
     createdAt: new Date(now - 2 * 60 * 60 * 1000),
@@ -75,7 +75,7 @@ async function seedSampleTickets() {
     subject: "Invoice for March",
     body: "Could you send a copy of my March invoice?",
     status: "IN_PROGRESS",
-    category: "BILLING",
+    category: "OTHER",
     fromEmail: "billing@example.com",
     fromName: "Acme Corp",
     createdAt: new Date(now - 24 * 60 * 60 * 1000),

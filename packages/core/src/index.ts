@@ -9,9 +9,11 @@ export {
 export {
   ticketStatusSchema,
   ticketCategorySchema,
+  requesterTypeSchema,
   AGENT_VISIBLE_STATUSES,
   type TicketStatus,
   type TicketCategory,
+  type RequesterType,
   type AgentVisibleStatus,
 } from "./ticketEnums.js";
 export {

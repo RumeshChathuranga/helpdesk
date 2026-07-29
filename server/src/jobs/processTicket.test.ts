@@ -117,7 +117,7 @@ describe("runProcessTicket", () => {
   }
 
   it("resolves the ticket and creates an AI reply when the model finds a KB answer", async () => {
-    aiMockState.classificationCategory = "BILLING";
+    aiMockState.classificationCategory = "ACCOUNT_ACCESS";
     aiMockState.resolution = {
       resolved: true,
       reply: "Here is your answer based on our knowledge base.",
@@ -143,7 +143,7 @@ describe("runProcessTicket", () => {
       where: { id: ticket.id },
     });
     expect(updated?.status).toBe("RESOLVED");
-    expect(updated?.category).toBe("BILLING");
+    expect(updated?.category).toBe("ACCOUNT_ACCESS");
     expect(updated?.assignedToId).toBe(aiAgentId);
 
     const replies = await prisma.reply.findMany({
@@ -157,7 +157,7 @@ describe("runProcessTicket", () => {
   });
 
   it("parks the AI reply as a pending-approval draft and escalates to OPEN for an email-sourced ticket, instead of auto-resolving", async () => {
-    aiMockState.classificationCategory = "BILLING";
+    aiMockState.classificationCategory = "ACCOUNT_ACCESS";
     aiMockState.resolution = {
       resolved: true,
       reply: "Here is your answer based on our knowledge base.",
@@ -192,7 +192,7 @@ describe("runProcessTicket", () => {
   });
 
   it("escalates to OPEN and unassigns the AI agent when the model can't resolve it", async () => {
-    aiMockState.classificationCategory = "TECHNICAL";
+    aiMockState.classificationCategory = "NETWORK";
     aiMockState.resolution = { resolved: false, reply: undefined };
     await insertMatchingKnowledgeChunk(
       "KB content that matches the mocked embedding but isn't a full answer.",
@@ -215,7 +215,7 @@ describe("runProcessTicket", () => {
       where: { id: ticket.id },
     });
     expect(updated?.status).toBe("OPEN");
-    expect(updated?.category).toBe("TECHNICAL");
+    expect(updated?.category).toBe("NETWORK");
     expect(updated?.assignedToId).toBeNull();
 
     const replies = await prisma.reply.findMany({
@@ -228,7 +228,7 @@ describe("runProcessTicket", () => {
   });
 
   it("escalates to OPEN without ever calling the resolution prompt when no KB chunk matches", async () => {
-    aiMockState.classificationCategory = "GENERAL";
+    aiMockState.classificationCategory = "OTHER";
     // Intentionally no matching KnowledgeChunk inserted for this ticket.
 
     const ticket = await createProcessingTicket(
@@ -248,7 +248,7 @@ describe("runProcessTicket", () => {
       where: { id: ticket.id },
     });
     expect(updated?.status).toBe("OPEN");
-    expect(updated?.category).toBe("GENERAL");
+    expect(updated?.category).toBe("OTHER");
     expect(updated?.assignedToId).toBeNull();
 
     const replies = await prisma.reply.findMany({

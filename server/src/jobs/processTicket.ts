@@ -23,11 +23,17 @@ export interface ProcessTicketJobData {
 // ─── Category descriptions ────────────────────────────────────────────────────
 
 const CATEGORY_DESCRIPTIONS: Record<TicketCategory, string> = {
-  BILLING: "Payment issues, invoices, subscriptions, refunds, pricing questions",
-  TECHNICAL: "Technical problems, errors, crashes, performance issues, integrations",
-  GENERAL: "General inquiries, how-to questions, documentation requests",
-  FEATURE_REQUEST: "Requests for new features or product enhancements",
-  BUG: "Reports of broken functionality or unexpected behavior",
+  ACCOUNT_ACCESS: "UoM account provisioning, forgotten or expired passwords, account lockout",
+  EMAIL: "University email configuration, WebMail issues, mailing lists, signatures",
+  NETWORK: "Campus LAN/internet connectivity, DNS requests, IP phones, VPN, proxy",
+  WIFI_EDUROAM: "eduroam and campus Wi-Fi connectivity problems",
+  LMS_MOODLE: "Moodle learning management system access, courses, quizzes, submissions",
+  LEARNORG_MIS: "LearnOrg and MIS modules — Exam, Postgraduate, SRC — marks and registration",
+  ERP_DMS: "ERP system matters and Document Management System (DMS) workflow issues",
+  SOFTWARE_LICENSING: "Software and licence requests, activation, campus software agreements",
+  ZOOM_CONFERENCING: "Zoom video conferencing setup, licences, and meeting issues",
+  WEB_HOSTING: "Departmental or personal web page hosting and updates",
+  HARDWARE: "Physical IT hardware faults — labs, printers, phones, workstations",
   OTHER: "Anything that does not fit the above categories",
 };
 

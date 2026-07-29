@@ -55,11 +55,17 @@ export const STATUS_LABEL: Record<TicketStatus, string> = {
 };
 
 export const CATEGORY_LABEL: Record<TicketCategory, string> = {
-  BILLING: "Billing",
-  TECHNICAL: "Technical",
-  GENERAL: "General",
-  FEATURE_REQUEST: "Feature request",
-  BUG: "Bug",
+  ACCOUNT_ACCESS: "Account & access",
+  EMAIL: "Email",
+  NETWORK: "Network",
+  WIFI_EDUROAM: "Wi-Fi / eduroam",
+  LMS_MOODLE: "LMS (Moodle)",
+  LEARNORG_MIS: "LearnOrg / MIS",
+  ERP_DMS: "ERP / DMS",
+  SOFTWARE_LICENSING: "Software & licensing",
+  ZOOM_CONFERENCING: "Zoom & conferencing",
+  WEB_HOSTING: "Web hosting",
+  HARDWARE: "Hardware",
   OTHER: "Other",
 };
 

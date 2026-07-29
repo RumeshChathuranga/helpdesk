@@ -23,12 +23,30 @@ enum TicketStatus {
 }
 
 enum TicketCategory {
-  BILLING
-  TECHNICAL
-  GENERAL
-  FEATURE_REQUEST
-  BUG
+  ACCOUNT_ACCESS
+  EMAIL
+  NETWORK
+  WIFI_EDUROAM
+  LMS_MOODLE
+  LEARNORG_MIS
+  ERP_DMS
+  SOFTWARE_LICENSING
+  ZOOM_CONFERENCING
+  WEB_HOSTING
+  HARDWARE
   OTHER
+}
+
+/// Affiliation of the person who raised the ticket, inferred from the sender
+/// address on inbound email or set manually by an agent. Nullable — inference
+/// is deliberately conservative and a wrong badge is worse than an empty one.
+enum RequesterType {
+  STUDENT
+  ACADEMIC_STAFF
+  ACADEMIC_SUPPORT_STAFF
+  ADMINISTRATIVE_STAFF
+  TECHNICAL_STAFF
+  NON_ACADEMIC_STAFF
 }
 
 enum ReplyDirection {
@@ -131,6 +149,7 @@ model Ticket {
   fromName          String?
   externalMessageId String?        @unique
   aiSummary         String?
+  requesterType     RequesterType?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
@@ -146,6 +165,7 @@ model Ticket {
   @@index([createdAt])
   @@index([category])
   @@index([assignedToId])
+  @@index([requesterType])
 }
 
 model Reply {

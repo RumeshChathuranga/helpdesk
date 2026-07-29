@@ -491,7 +491,7 @@ describe("POST /api/tickets", () => {
     const res = await createTicket({
       subject: `Billing issue ${runId}`,
       body: "I was double charged this month.",
-      category: "BILLING",
+      category: "ACCOUNT_ACCESS",
       assignedToId: agent.id,
     });
 
@@ -501,7 +501,7 @@ describe("POST /api/tickets", () => {
     };
     createdTicketIds.push(json.ticket.id);
 
-    expect(json.ticket.category).toBe("BILLING");
+    expect(json.ticket.category).toBe("ACCOUNT_ACCESS");
     expect(json.ticket.assignedToId).toBe(agent.id);
   });
 });
@@ -561,14 +561,14 @@ describe("PATCH /api/tickets/:id", () => {
         subject: `Patch ${runId}`,
         body: "Body",
         status: "OPEN",
-        category: "GENERAL",
+        category: "OTHER",
       },
     });
     createdTicketIds.push(ticket.id);
 
     const res = await patchTicket(ticket.id, {
       status: "IN_PROGRESS",
-      category: "TECHNICAL",
+      category: "NETWORK",
       assignedToId: agent.id,
     });
     expect(res.status).toBe(200);
@@ -582,7 +582,7 @@ describe("PATCH /api/tickets/:id", () => {
     };
 
     expect(json.ticket.status).toBe("IN_PROGRESS");
-    expect(json.ticket.category).toBe("TECHNICAL");
+    expect(json.ticket.category).toBe("NETWORK");
     expect(json.ticket.assignedToId).toBe(agent.id);
   });
 

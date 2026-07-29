@@ -27,7 +27,7 @@ const detailTicket: TicketDetail = {
   id: "t1",
   subject: "Cannot reset password",
   status: "OPEN" as const,
-  category: "TECHNICAL" as const,
+  category: "NETWORK" as const,
   fromEmail: "jane.customer@gmail.com",
   fromName: "Jane Customer",
   assignedToId: null,
@@ -177,7 +177,7 @@ describe("TicketDetailPage", () => {
         ticket: {
           ...detailTicket,
           status: "IN_PROGRESS",
-          category: "GENERAL",
+          category: "OTHER",
           assignedToId: "agent-1",
         },
       },
@@ -195,7 +195,7 @@ describe("TicketDetailPage", () => {
       target: { value: "IN_PROGRESS" },
     });
     fireEvent.change(screen.getByLabelText("Category"), {
-      target: { value: "GENERAL" },
+      target: { value: "OTHER" },
     });
     fireEvent.change(screen.getByLabelText("Assignee"), {
       target: { value: "agent-1" },
@@ -209,7 +209,7 @@ describe("TicketDetailPage", () => {
         "/tickets/t1",
         {
           status: "IN_PROGRESS",
-          category: "GENERAL",
+          category: "OTHER",
           assignedToId: "agent-1",
         },
       );

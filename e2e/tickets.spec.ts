@@ -55,7 +55,7 @@ test.describe.serial("Ticket list — table", () => {
     const ticket = await createTicketViaPage(page, {
       subject,
       body: "Created from E2E test",
-      category: "TECHNICAL",
+      category: "NETWORK",
     });
     createdTicketIds.push(ticket.id);
     // Ticket is NEW/PROCESSING until the AI worker finishes (or fails open).
@@ -78,7 +78,7 @@ test.describe.serial("Ticket list — table", () => {
 
     const row = page.getByRole("row").filter({ hasText: subject });
     await expect(row.getByText("Open")).toBeVisible();
-    await expect(row.getByText("Technical")).toBeVisible();
+    await expect(row.getByText("Network")).toBeVisible();
     await expect(row.getByText("—")).toBeVisible();
   });
 
@@ -91,7 +91,7 @@ test.describe.serial("Ticket list — table", () => {
       .filter({ hasText: "Cannot reset password" });
     await expect(row.getByText("Jane Customer")).toBeVisible();
     await expect(row.getByText("Open")).toBeVisible();
-    await expect(row.getByText("Technical")).toBeVisible();
+    await expect(row.getByText("Account & access")).toBeVisible();
   });
 
   test("lists tickets newest first", async ({ page }) => {
@@ -149,14 +149,14 @@ test.describe.serial("Ticket list — table", () => {
     const openTicket = await createTicketViaPage(page, {
       subject: openSubject,
       body: "Open filter ticket",
-      category: "GENERAL",
+      category: "OTHER",
     });
     createdTicketIds.push(openTicket.id);
 
     const resolvedTicket = await createTicketViaPage(page, {
       subject: resolvedSubject,
       body: "Resolved filter ticket",
-      category: "BILLING",
+      category: "ACCOUNT_ACCESS",
     });
     createdTicketIds.push(resolvedTicket.id);
 
@@ -176,7 +176,7 @@ test.describe.serial("Ticket list — table", () => {
     ).not.toBeVisible();
 
     await page.getByLabel("Status").selectOption("All statuses");
-    await page.getByLabel("Category").selectOption("Billing");
+    await page.getByLabel("Category").selectOption("Account & access");
     await waitForTicketsTable(page);
 
     await expect(

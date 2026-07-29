@@ -19,7 +19,7 @@ const listTickets = [
     id: "t1",
     subject: "Cannot reset password",
     status: "OPEN" as const,
-    category: "TECHNICAL" as const,
+    category: "NETWORK" as const,
     fromEmail: "jane.customer@gmail.com",
     fromName: "Jane Customer",
     assignedToId: null,
@@ -31,7 +31,7 @@ const listTickets = [
     id: "t2",
     subject: "Invoice question",
     status: "IN_PROGRESS" as const,
-    category: "BILLING" as const,
+    category: "ACCOUNT_ACCESS" as const,
     fromEmail: "billing@example.com",
     fromName: null,
     assignedToId: null,
@@ -221,14 +221,14 @@ describe("TicketsPage", () => {
     mockedGet.mockClear();
 
     fireEvent.change(screen.getByLabelText("Category"), {
-      target: { value: "BILLING" },
+      target: { value: "ACCOUNT_ACCESS" },
     });
 
     await waitFor(() => {
       expect(mockedGet).toHaveBeenCalledWith("/tickets", {
         params: {
           sort: "createdAt_desc",
-          category: "BILLING",
+          category: "ACCOUNT_ACCESS",
           page: 1,
           pageSize: 10,
         },
