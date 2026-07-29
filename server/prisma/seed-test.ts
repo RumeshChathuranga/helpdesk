@@ -61,23 +61,23 @@ async function seedSampleTickets() {
 
   await ensureSampleTicket({
     externalMessageId: "seed-test-reset-password",
-    subject: "Cannot reset password",
-    body: "I tried the forgot-password link but never received an email.",
+    subject: "Cannot reset my UoM account password",
+    body: "The password reset page keeps saying my new password does not meet the policy, but I copied it from the guidelines. Tried three times already.",
     status: "OPEN",
     category: "ACCOUNT_ACCESS",
-    fromEmail: "customer@example.com",
-    fromName: "Jane Customer",
+    fromEmail: "kavindut.22@cse.mrt.ac.lk",
+    fromName: "Kavindu Thennakoon",
     createdAt: new Date(now - 2 * 60 * 60 * 1000),
   });
 
   await ensureSampleTicket({
-    externalMessageId: "seed-test-invoice-march",
-    subject: "Invoice for March",
-    body: "Could you send a copy of my March invoice?",
+    externalMessageId: "seed-test-eduroam-library",
+    subject: "eduroam not connecting in the library",
+    body: "My laptop connects to eduroam everywhere else on campus but keeps failing authentication on the third floor of the library.",
     status: "IN_PROGRESS",
-    category: "OTHER",
-    fromEmail: "billing@example.com",
-    fromName: "Acme Corp",
+    category: "WIFI_EDUROAM",
+    fromEmail: "sachinip.22@cse.mrt.ac.lk",
+    fromName: "Sachini Perera",
     createdAt: new Date(now - 24 * 60 * 60 * 1000),
   });
 

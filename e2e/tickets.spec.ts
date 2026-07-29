@@ -88,8 +88,8 @@ test.describe.serial("Ticket list — table", () => {
 
     const row = page
       .getByRole("row")
-      .filter({ hasText: "Cannot reset password" });
-    await expect(row.getByText("Jane Customer")).toBeVisible();
+      .filter({ hasText: "Cannot reset my UoM account password" });
+    await expect(row.getByText("Kavindu Thennakoon")).toBeVisible();
     await expect(row.getByText("Open")).toBeVisible();
     await expect(row.getByText("Account & access")).toBeVisible();
   });
