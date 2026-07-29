@@ -13,6 +13,7 @@ import { boss, startBoss } from "../lib/boss.js";
 import { loginAsAgent, startTestServer } from "../test/helpers.js";
 import { setEmailDriverForTesting } from "../lib/email/index.js";
 import type { EmailDriver } from "../lib/email/index.js";
+import { AI_AGENT_EMAIL } from "../config.js";
 
 describe("ticketListSortToOrderBy", () => {
   it("maps subject sort", () => {
@@ -463,7 +464,7 @@ describe("POST /api/tickets", () => {
     expect(json.ticket.status).toBe("NEW");
 
     const aiAgent = await prisma.user.findUnique({
-      where: { email: "ai@example.com" },
+      where: { email: AI_AGENT_EMAIL },
       select: { id: true },
     });
     if (aiAgent) {
@@ -1009,7 +1010,7 @@ describe("POST /api/tickets/:id/replies", () => {
 
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: string };
-    expect(json.error).toBe("This ticket has no customer email address");
+    expect(json.error).toBe("This ticket has no requester email address");
   });
 });
 

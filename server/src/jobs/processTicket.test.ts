@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, mock } from "bun:test";
 import { prisma } from "../lib/prisma.js";
 import { aiMockState, resetAiMockState } from "../test/mockAi.js";
+import { AI_AGENT_EMAIL } from "../config.js";
 
 const EMBED_DIM = 384;
 // A normalized (magnitude 1) fixed vector so cosine similarity against an
@@ -28,12 +29,12 @@ describe("runProcessTicket", () => {
     ({ runProcessTicket } = await import("./processTicket.js"));
 
     const aiAgent = await prisma.user.findUnique({
-      where: { email: "ai@example.com" },
+      where: { email: AI_AGENT_EMAIL },
       select: { id: true },
     });
     if (!aiAgent) {
       throw new Error(
-        "Seeded ai@example.com agent not found — run `bun prisma/seed-test.ts` against helpdesk_test.",
+        `Seeded ${AI_AGENT_EMAIL} agent not found — run \`bun prisma/seed-test.ts\` against helpdesk_test.`,
       );
     }
     aiAgentId = aiAgent.id;

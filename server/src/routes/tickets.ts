@@ -187,7 +187,7 @@ ticketsRouter.post("/:id/replies", requireAgent, validateBody(createReplyBodySch
 
   const shouldSend = req.body.sendEmail ?? Boolean(ticket?.fromEmail);
   if (shouldSend && !ticket?.fromEmail) {
-    res.status(400).json({ error: "This ticket has no customer email address" });
+    res.status(400).json({ error: "This ticket has no requester email address" });
     return;
   }
 
@@ -275,7 +275,7 @@ ticketsRouter.post(
       return;
     }
     if (!ticket.fromEmail) {
-      res.status(400).json({ error: "This ticket has no customer email address" });
+      res.status(400).json({ error: "This ticket has no requester email address" });
       return;
     }
 
@@ -354,7 +354,7 @@ ticketsRouter.post("/:id/replies/:replyId/retry-send", requireAgent, async (req,
     return;
   }
   if (!ticket.fromEmail) {
-    res.status(400).json({ error: "This ticket has no customer email address" });
+    res.status(400).json({ error: "This ticket has no requester email address" });
     return;
   }
 
@@ -417,11 +417,11 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
   }
 
   const session = res.locals.agentSession!;
-  const agentName = session.user.name ?? "Support Team";
+  const agentName = session.user.name ?? "CITeS IT Help Desk";
   const agentEmail = SUPPORT_EMAIL;
 
-  // Determine customer name for personalised greeting
-  const customerName = ticket.fromName?.trim()
+  // Determine requester name for personalised greeting
+  const requesterName = ticket.fromName?.trim()
     ? ticket.fromName.trim().split(" ")[0] // first name only
     : "there";
 
@@ -434,7 +434,8 @@ Guidelines:
 - Keep the same meaning and core content
 - Maintain a helpful, empathetic tone
 - Do not add new information or promises not in the original draft
-- Always open the reply with: "Dear ${customerName},"
+- Do not invent university procedures, URLs, or contact details that are not in the agent's draft
+- Always open the reply with: "Dear ${requesterName},"
 - Always close the reply with exactly this sign-off (on its own lines):
 
 Best regards,
@@ -493,7 +494,7 @@ ticketsRouter.post("/:id/summarize", requireAgent, async (req, res) => {
 
   const prompt = `Ticket subject: ${ticket.subject}
 
-Customer (${ticket.fromName ?? ticket.fromEmail ?? "Unknown"}) original message:
+Requester (${ticket.fromName ?? ticket.fromEmail ?? "Unknown"}) original message:
 ${ticket.body}
 
 ${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No replies yet."}`;
@@ -501,8 +502,8 @@ ${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No re
   const { text } = await generateText({
     model,
     system: `You are a concise ${PROMPT_TAG.summarize}. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
-- The customer's core issue or request
-- Key actions taken or proposed by the support team
+- The requester's core issue or request
+- Key actions taken or proposed by the help desk
 - Current status or outstanding next steps
 Be concise and factual. Use plain text bullet points starting with "•".`,
     prompt,

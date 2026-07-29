@@ -159,8 +159,8 @@ export async function runSendEmail(replyId: string): Promise<void> {
       inReplyTo,
       references,
       headers: {
-        "X-Helpdesk-Reply-Id": reply.id,
-        "X-Helpdesk-Ticket-Id": reply.ticket.id,
+        "X-CITeS-Reply-Id": reply.id,
+        "X-CITeS-Ticket-Id": reply.ticket.id,
         ...(reply.isAi ? { "Auto-Submitted": "auto-replied" } : {}),
       },
     });

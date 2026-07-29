@@ -15,7 +15,7 @@ export interface EmailMessage {
   inReplyTo?: string;
   /** Angle-bracketed msg-ids, oldest → newest; last element === inReplyTo. */
   references?: string[];
-  /** Extra headers: X-Helpdesk-Reply-Id, X-Helpdesk-Ticket-Id, Auto-Submitted. */
+  /** Extra headers: X-CITeS-Reply-Id, X-CITeS-Ticket-Id, Auto-Submitted. */
   headers?: Record<string, string>;
 }
 
