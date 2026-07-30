@@ -93,7 +93,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
-      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">
+      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase text-foreground">
         Edit ticket
       </h2>
       <Form {...form}>

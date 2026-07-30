@@ -24,7 +24,7 @@ export function DashboardPage() {
           </p>
         </div>
         {isError && (
-          <span className="text-red-400 text-sm bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20">
+          <span className="text-red-700 text-sm bg-red-50 px-3 py-1 rounded-full border border-red-200">
             Failed to load stats
           </span>
         )}
@@ -50,7 +50,7 @@ export function DashboardPage() {
           value={stats?.aiResolvedCount}
           isLoading={isLoading}
           icon={<Bot className="w-5 h-5 text-emerald-500" />}
-          valueColor="text-emerald-400"
+          valueColor="text-emerald-600"
         />
         <StatCard
           label="AI Success Rate"
@@ -119,25 +119,25 @@ export function DashboardPage() {
                       >
                         {/* Tooltip */}
                         <div className="absolute bottom-full mb-2 hidden group-hover:flex flex-col items-center pointer-events-none z-20 transition-all duration-200">
-                          <div className="bg-slate-900 border border-border text-white text-xs rounded-xl py-1.5 px-3 shadow-2xl whitespace-nowrap flex items-center gap-1.5">
-                            <span className="font-semibold text-gray-400">
+                          <div className="bg-foreground border border-border text-background text-xs rounded-xl py-1.5 px-3 shadow-2xl whitespace-nowrap flex items-center gap-1.5">
+                            <span className="font-semibold text-background/60">
                               {new Date(day.date).toLocaleDateString(undefined, {
                                 month: "short",
                                 day: "numeric",
                               })}
                             </span>
-                            <span className="text-gray-700">|</span>
-                            <span className="text-white font-bold">
+                            <span className="text-background/30">|</span>
+                            <span className="text-background font-bold">
                               {day.count} {day.count === 1 ? "ticket" : "tickets"}
                             </span>
                           </div>
                           {/* Arrow */}
-                          <div className="w-1.5 h-1.5 bg-slate-900 border-r border-b border-border rotate-45 -mt-0.5" />
+                          <div className="w-1.5 h-1.5 bg-foreground border-r border-b border-border rotate-45 -mt-0.5" />
                         </div>
 
                         {/* Bar */}
                         <div
-                          className="w-full bg-primary/70 hover:bg-primary rounded-t-md transition-all duration-300 cursor-pointer min-h-[2px] shadow-[0_0_10px_rgba(59,130,246,0.15)] hover:shadow-[0_0_15px_rgba(59,130,246,0.4)]"
+                          className="w-full bg-primary/70 hover:bg-primary rounded-t-md transition-all duration-300 cursor-pointer min-h-[2px] shadow-[0_0_10px_rgba(123,17,19,0.15)] hover:shadow-[0_0_15px_rgba(123,17,19,0.35)]"
                           style={{ height: `${percent}%` }}
                         />
                       </div>

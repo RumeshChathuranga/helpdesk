@@ -6,7 +6,7 @@ export function AdminRoute() {
 
   if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 rounded-full border-2 border-brand-600 border-t-transparent animate-spin" />
       </div>
     );

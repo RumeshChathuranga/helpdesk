@@ -76,7 +76,7 @@ export function Layout() {
         <header className="h-16 bg-card border-b border-border flex items-center px-6 justify-between z-10">
           <div className="flex items-center gap-2">
             {session?.user?.role === "ADMIN" && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-500/10 text-amber-500 border border-amber-500/25 px-2 py-0.5 rounded">
+              <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded">
                 <ShieldAlert className="w-3 h-3" /> Admin Mode
               </span>
             )}

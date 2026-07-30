@@ -66,7 +66,7 @@ export function TicketsPage() {
       )}
 
       {isSuccess && tickets.length === 0 && (
-        <p className="text-gray-600">No tickets found.</p>
+        <p className="text-muted-foreground">No tickets found.</p>
       )}
 
       {showTable && (

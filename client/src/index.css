@@ -6,55 +6,35 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 35% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 35% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 222 25% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 25% 14%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 25% 16%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222 25% 16%;
-    --input: 222 25% 16%;
-    --ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 70% 50%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 262 83% 58%;
-    --chart-5: 316 70% 50%;
+    --background: 40 20% 98%;
+    --foreground: 350 12% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 350 12% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 350 12% 12%;
+    --primary: 358 76% 27%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 40 15% 94%;
+    --secondary-foreground: 350 10% 15%;
+    --muted: 40 12% 95%;
+    --muted-foreground: 350 8% 45%;
+    --accent: 46 68% 47%;
+    --accent-foreground: 350 30% 15%;
+    --destructive: 0 72% 42%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 350 14% 88%;
+    --input: 350 14% 88%;
+    --ring: 358 76% 27%;
+    --chart-1: 358 76% 27%;
+    --chart-2: 46 68% 47%;
+    --chart-3: 158 35% 39%;
+    --chart-4: 262 45% 45%;
+    --chart-5: 20 55% 45%;
     --radius: 0.75rem;
   }
 
-  .dark {
-    /* Same as root because we want this dark theme to be default */
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 35% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 35% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 222 25% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 25% 14%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 25% 16%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 222 25% 16%;
-    --input: 222 25% 16%;
-    --ring: 217 91% 60%;
-  }
+  /* No .dark block: nothing in this app ever adds a `dark` class (verified by
+     grep), so a second copy of the theme here would only be dead code. */
 
   html {
     -webkit-font-smoothing: antialiased;

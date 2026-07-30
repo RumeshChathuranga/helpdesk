@@ -12,7 +12,7 @@ export function AppErrorFallback({
   resetError,
 }: AppErrorFallbackProps) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#070A0F] text-foreground relative overflow-hidden p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground relative overflow-hidden p-4">
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
       <div className="w-full max-w-md">
@@ -22,16 +22,16 @@ export function AppErrorFallback({
             <CardTitle className="text-2xl font-bold tracking-tight text-foreground text-center">
               Something went wrong
             </CardTitle>
-            <CardDescription className="text-center font-mono text-xs text-muted-foreground">
+            <CardDescription className="text-center text-xs text-muted-foreground">
               The error has been reported automatically.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 pt-2 space-y-4">
-            <Alert variant="destructive" className="border-red-500/20 bg-red-500/5">
-              <AlertTitle className="text-red-400 font-mono font-semibold text-sm">
+            <Alert variant="destructive" className="border-red-200 bg-red-50">
+              <AlertTitle className="text-red-700 font-semibold text-sm">
                 Unexpected error
               </AlertTitle>
-              <AlertDescription className="text-red-400/90 text-xs">
+              <AlertDescription className="text-red-700/90 text-xs">
                 {getErrorMessage(error)}
               </AlertDescription>
             </Alert>

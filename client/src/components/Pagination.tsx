@@ -30,7 +30,7 @@ export function Pagination({
       className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
       aria-label={ariaLabel}
     >
-      <p className="text-sm text-gray-600">
+      <p className="text-sm text-muted-foreground">
         Showing {rangeStart}–{rangeEnd} of {total}
       </p>
       <div className="flex items-center gap-2">
@@ -43,7 +43,7 @@ export function Pagination({
         >
           Previous
         </Button>
-        <span className="text-sm text-gray-700 tabular-nums">
+        <span className="text-sm text-muted-foreground tabular-nums">
           Page {page} of {totalPages}
         </span>
         <Button

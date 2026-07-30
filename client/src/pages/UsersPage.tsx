@@ -70,7 +70,7 @@ export function UsersPage() {
       )}
 
       {isSuccess && data.length === 0 && (
-        <p className="text-gray-600">No users found.</p>
+        <p className="text-muted-foreground">No users found.</p>
       )}
 
       {isSuccess && data.length > 0 && (

@@ -101,22 +101,22 @@ export function UsersTable(props: UsersTableProps) {
                 ))
               : users.map((u) => (
                   <tr key={u.id} className="hover:bg-secondary/20 transition-colors duration-150">
-                    <td className="px-5 py-4 font-semibold text-foreground font-mono text-xs">
+                    <td className="px-5 py-4 font-semibold text-foreground text-xs">
                       {u.name}
                     </td>
-                    <td className="px-5 py-4 text-muted-foreground font-mono text-xs">{u.email}</td>
+                    <td className="px-5 py-4 text-muted-foreground text-xs">{u.email}</td>
                     <td className="px-5 py-4">
                       <span
                         className={
                           u.role === "ADMIN"
-                            ? "inline-flex rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-mono font-semibold text-blue-400 border border-blue-500/20"
-                            : "inline-flex rounded-full bg-zinc-500/10 px-2.5 py-0.5 text-xs font-mono font-semibold text-zinc-500 border border-zinc-500/20"
+                            ? "inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-mono font-semibold text-blue-700 border border-blue-200"
+                            : "inline-flex rounded-full bg-zinc-50 px-2.5 py-0.5 text-xs font-mono font-semibold text-zinc-700 border border-zinc-200"
                         }
                       >
                         {u.role}
                       </span>
                     </td>
-                    <td className="px-5 py-4 text-muted-foreground font-mono text-xs">
+                    <td className="px-5 py-4 text-muted-foreground text-xs">
                       {u.emailVerified ? "Yes" : "No"}
                     </td>
                     <td className="px-5 py-4 text-muted-foreground font-mono text-xs tabular-nums">

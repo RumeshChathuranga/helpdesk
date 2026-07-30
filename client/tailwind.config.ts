@@ -6,14 +6,31 @@ export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Inter", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
+      },
       colors: {
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          900: "#1e3a8a",
+          50: "#fdf2f2",
+          100: "#fbdfe0",
+          200: "#f6c0c1",
+          300: "#ed9294",
+          400: "#de5c5f",
+          500: "#c93337",
+          600: "#a41f22",
+          700: "#7b1113",
+          800: "#5c0c0e",
+          900: "#430a0b",
+        },
+        gold: {
+          50: "#fdf8ec",
+          100: "#f9edc9",
+          300: "#eecd6e",
+          500: "#c9a227",
+          600: "#a3811c",
+          700: "#7d6315",
+          900: "#4a3a0d",
         },
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",

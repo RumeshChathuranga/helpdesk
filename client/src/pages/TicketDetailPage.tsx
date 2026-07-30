@@ -26,10 +26,10 @@ import {
 const BADGE_BASE = "inline-flex rounded px-1.5 py-0.5 text-[10px] font-semibold border";
 
 const DELIVERY_BADGE: Partial<Record<EmailDeliveryState, string>> = {
-  QUEUED: `${BADGE_BASE} bg-slate-500/10 text-slate-400 border-slate-500/20`,
-  SENDING: `${BADGE_BASE} bg-slate-500/10 text-slate-400 border-slate-500/20`,
-  SENT: `${BADGE_BASE} bg-blue-500/10 text-blue-400 border-blue-500/20`,
-  FAILED: `${BADGE_BASE} bg-red-500/10 text-red-400 border-red-500/20`,
+  QUEUED: `${BADGE_BASE} bg-slate-50 text-slate-700 border-slate-200`,
+  SENDING: `${BADGE_BASE} bg-slate-50 text-slate-700 border-slate-200`,
+  SENT: `${BADGE_BASE} bg-blue-50 text-blue-700 border-blue-200`,
+  FAILED: `${BADGE_BASE} bg-red-50 text-red-700 border-red-200`,
 };
 
 const DELIVERY_LABEL: Partial<Record<EmailDeliveryState, string>> = {
@@ -39,7 +39,7 @@ const DELIVERY_LABEL: Partial<Record<EmailDeliveryState, string>> = {
   FAILED: "Send failed",
 };
 
-const PENDING_BADGE = `${BADGE_BASE} bg-amber-500/10 text-amber-400 border-amber-500/20`;
+const PENDING_BADGE = `${BADGE_BASE} bg-amber-50 text-amber-700 border-amber-200`;
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -59,7 +59,7 @@ function RequesterInfo({
 
   if (fromName && fromEmail) {
     return (
-      <div className="font-mono text-xs">
+      <div className="text-xs">
         <div className="font-semibold text-foreground">{fromName}</div>
         <div className="text-[10px] text-muted-foreground mt-0.5">{fromEmail}</div>
       </div>
@@ -67,7 +67,7 @@ function RequesterInfo({
   }
 
   return (
-    <span className="text-foreground font-mono text-xs">
+    <span className="text-foreground text-xs">
       {fromName ?? fromEmail ?? ""}
     </span>
   );
@@ -88,21 +88,21 @@ function ApprovalPanel({
   const isBusy = approveMutation.isPending || discardMutation.isPending;
 
   return (
-    <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
       <textarea
         className="w-full min-h-[100px] rounded-lg border border-input bg-background px-3 py-2 text-sm font-sans disabled:cursor-not-allowed disabled:opacity-50"
         value={draft}
         disabled={isBusy}
         onChange={(e) => setDraft(e.target.value)}
       />
-      <p className="mt-2 text-xs text-amber-300/80 font-mono">
+      <p className="mt-2 text-xs text-amber-700/80">
         {customerEmail
           ? `Will be emailed to ${customerEmail}`
           : "This ticket has no customer email address."}
       </p>
 
       {(approveMutation.isError || discardMutation.isError) && (
-        <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-400 font-mono">
+        <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {getErrorMessage(approveMutation.error ?? discardMutation.error)}
         </div>
       )}
@@ -164,7 +164,7 @@ function ReplyItem({
           {dateFormatter.format(new Date(reply.createdAt))}
         </time>
         {reply.isAi && (
-          <span className="inline-flex rounded bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-violet-400 border border-violet-500/20">
+          <span className="inline-flex rounded bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 border border-violet-200">
             AI Agent
           </span>
         )}
@@ -201,7 +201,7 @@ function ReplyItem({
             {retryMutation.isPending ? "Retrying…" : "Retry send"}
           </Button>
           {retryMutation.isError && (
-            <span className="text-xs text-red-400 font-mono">
+            <span className="text-xs text-red-700">
               {getErrorMessage(retryMutation.error)}
             </span>
           )}
@@ -285,9 +285,9 @@ export function TicketDetailPage() {
       )}
 
       {isError && !isNotFound && (
-        <Alert variant="destructive" className="border-red-500/20 bg-red-500/5">
-          <AlertTitle className="text-red-400 font-mono font-semibold text-sm">Could not load ticket</AlertTitle>
-          <AlertDescription className="text-red-400/90 text-xs">{getErrorMessage(error)}</AlertDescription>
+        <Alert variant="destructive" className="border-red-200 bg-red-50">
+          <AlertTitle className="text-red-700 font-semibold text-sm">Could not load ticket</AlertTitle>
+          <AlertDescription className="text-red-700/90 text-xs">{getErrorMessage(error)}</AlertDescription>
         </Alert>
       )}
 
@@ -309,12 +309,12 @@ export function TicketDetailPage() {
             </div>
 
             <div className="bg-card border border-border rounded-2xl p-6">
-              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-muted-foreground">
+              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase text-muted-foreground">
                 Ticket Information
               </h2>
               <dl className="grid gap-6 sm:grid-cols-2 text-sm">
                 <div>
-                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Requester</dt>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Requester</dt>
                   <dd className="mt-1.5">
                     <RequesterInfo
                       fromName={ticket.fromName}
@@ -323,7 +323,7 @@ export function TicketDetailPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Assignee</dt>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Assignee</dt>
                   <dd className="mt-1.5 text-foreground font-medium">
                     {ticket.assignedTo?.name ?? (
                       <span className="text-muted-foreground italic">Unassigned</span>
@@ -331,13 +331,13 @@ export function TicketDetailPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Created</dt>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Created</dt>
                   <dd className="mt-1.5 text-muted-foreground font-mono text-xs">
                     {dateFormatter.format(new Date(ticket.createdAt))}
                   </dd>
                 </div>
                 <div>
-                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider font-mono">Updated</dt>
+                  <dt className="font-semibold text-muted-foreground text-[10px] uppercase tracking-wider">Updated</dt>
                   <dd className="mt-1.5 text-muted-foreground font-mono text-xs">
                     {dateFormatter.format(new Date(ticket.updatedAt))}
                   </dd>
@@ -349,7 +349,7 @@ export function TicketDetailPage() {
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 shadow-md relative overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
               <div className="mb-4 flex items-center justify-between gap-3">
-                <h2 className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase font-mono text-primary">
+                <h2 className="flex items-center gap-1.5 text-xs font-bold tracking-wider uppercase text-primary">
                   <Sparkles className="h-4.5 w-4.5 text-primary animate-pulse" aria-hidden="true" />
                   AI Summary
                 </h2>
@@ -403,8 +403,8 @@ export function TicketDetailPage() {
               </div>
 
               {hasSummaryError && (
-                <p className="text-xs text-red-400 font-mono">
-                  <span className="font-semibold text-red-500">Error:</span>{" "}
+                <p className="text-xs text-red-700">
+                  <span className="font-semibold text-red-700">Error:</span>{" "}
                   {getErrorMessage(summaryError)}
                 </p>
               )}
@@ -424,14 +424,14 @@ export function TicketDetailPage() {
               )}
 
               {!hasSummary && !isSummarizing && !hasSummaryError && (
-                <p className="text-xs text-muted-foreground/60 italic font-mono">
+                <p className="text-xs text-muted-foreground/60 italic">
                   Click &ldquo;Summarize&rdquo; to generate an AI summary of this ticket and its conversation.
                 </p>
               )}
             </div>
 
             <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
-              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">
+              <h2 className="mb-4 text-xs font-bold tracking-wider uppercase text-foreground">
                 Original message
               </h2>
               <p className="whitespace-pre-wrap text-sm text-foreground/90 leading-relaxed font-sans">
@@ -440,11 +440,11 @@ export function TicketDetailPage() {
             </div>
 
             <section className="space-y-4">
-              <h2 className="text-xs font-bold tracking-wider uppercase font-mono text-foreground">
+              <h2 className="text-xs font-bold tracking-wider uppercase text-foreground">
                 Replies ({ticket.replies.length})
               </h2>
               {ticket.replies.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic font-mono bg-card/20 p-4 border border-border/50 rounded-xl text-center">No replies yet.</p>
+                <p className="text-xs text-muted-foreground italic bg-card/20 p-4 border border-border/50 rounded-xl text-center">No replies yet.</p>
               ) : (
                 <div className="space-y-3">
                   {ticket.replies.map((reply) => (
@@ -464,9 +464,9 @@ export function TicketDetailPage() {
 
           <aside className="mt-6 lg:mt-0 lg:sticky lg:top-6">
             {isHiddenStatus ? (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
                 <p className="font-semibold mb-1">Still processing</p>
-                <p className="text-amber-300/80">
+                <p className="text-amber-700/80">
                   This ticket is still being processed by AI and can&rsquo;t be edited yet.
                 </p>
               </div>

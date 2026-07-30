@@ -34,16 +34,16 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
 const SKELETON_ROWS = 6;
 
 export const STATUS_BADGE: Record<TicketStatus, string> = {
-  NEW: "inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-blue-400 border border-blue-500/20",
+  NEW: "inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-xs font-mono font-semibold text-blue-700 border border-blue-200",
   PROCESSING:
-    "inline-flex rounded-full bg-violet-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-violet-400 border border-violet-500/20",
-  OPEN: "inline-flex rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-sky-400 border border-sky-500/20",
+    "inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-xs font-mono font-semibold text-violet-700 border border-violet-200",
+  OPEN: "inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-xs font-mono font-semibold text-sky-700 border border-sky-200",
   IN_PROGRESS:
-    "inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-amber-400 border border-amber-500/20",
+    "inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-mono font-semibold text-amber-700 border border-amber-200",
   RESOLVED:
-    "inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-400 border border-emerald-500/20",
+    "inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-mono font-semibold text-emerald-700 border border-emerald-200",
   CLOSED:
-    "inline-flex rounded-full bg-zinc-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-zinc-500 border border-zinc-500/20",
+    "inline-flex rounded-full bg-zinc-50 px-2 py-0.5 text-xs font-mono font-semibold text-zinc-700 border border-zinc-200",
 };
 
 export const STATUS_LABEL: Record<TicketStatus, string> = {
@@ -81,17 +81,17 @@ export const REQUESTER_TYPE_LABEL: Record<RequesterType, string> = {
 
 export const REQUESTER_TYPE_BADGE: Record<RequesterType, string> = {
   STUDENT:
-    "inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-blue-400 border border-blue-500/20",
+    "inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-blue-700 border border-blue-200",
   ACADEMIC_STAFF:
-    "inline-flex rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-violet-400 border border-violet-500/20",
+    "inline-flex rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-violet-700 border border-violet-200",
   ACADEMIC_SUPPORT_STAFF:
-    "inline-flex rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-indigo-400 border border-indigo-500/20",
+    "inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-indigo-700 border border-indigo-200",
   ADMINISTRATIVE_STAFF:
-    "inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-400 border border-amber-500/20",
+    "inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-700 border border-amber-200",
   TECHNICAL_STAFF:
-    "inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400 border border-emerald-500/20",
+    "inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-700 border border-emerald-200",
   NON_ACADEMIC_STAFF:
-    "inline-flex rounded-full bg-zinc-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-zinc-500 border border-zinc-500/20",
+    "inline-flex rounded-full bg-zinc-50 px-2 py-0.5 text-[10px] font-mono font-semibold text-zinc-700 border border-zinc-200",
 };
 
 function requesterSortValue(ticket: TicketListItem): string {
@@ -124,7 +124,7 @@ function RequesterCell({ ticket }: { ticket: TicketListItem }) {
 
   if (ticket.fromName && ticket.fromEmail) {
     return (
-      <div className="min-w-0 max-w-xs font-mono text-xs">
+      <div className="min-w-0 max-w-xs text-xs">
         <div className="font-semibold text-foreground truncate">
           {ticket.fromName}
         </div>
@@ -138,7 +138,7 @@ function RequesterCell({ ticket }: { ticket: TicketListItem }) {
 
   return (
     <div className="min-w-0 max-w-xs">
-      <span className="text-foreground font-mono text-xs truncate block">
+      <span className="text-foreground text-xs truncate block">
         {ticket.fromName ?? ticket.fromEmail ?? ""}
       </span>
       {ticket.requesterType && (

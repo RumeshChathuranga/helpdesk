@@ -71,7 +71,7 @@ export function ReplyForm({ ticketId, customerEmail }: ReplyFormProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-6 shadow-md">
-      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase font-mono text-foreground">Add reply</h2>
+      <h2 className="mb-4 text-xs font-bold tracking-wider uppercase text-foreground">Add reply</h2>
       <Form {...form}>
         <form
           noValidate
@@ -81,8 +81,8 @@ export function ReplyForm({ ticketId, customerEmail }: ReplyFormProps) {
           <FormRootErrorAlert message={form.formState.errors.root?.message} />
 
           {polishMutation.isError && (
-            <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-400 font-mono">
-              <span className="font-semibold text-red-500">Polish failed:</span>{" "}
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <span className="font-semibold text-red-700">Polish failed:</span>{" "}
               {getErrorMessage(polishMutation.error)}
             </div>
           )}
@@ -106,7 +106,7 @@ export function ReplyForm({ ticketId, customerEmail }: ReplyFormProps) {
                     </FormControl>
                     {isPolishing && (
                       <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-sm">
-                        <div className="flex items-center gap-2 text-sm text-primary font-mono font-bold animate-pulse">
+                        <div className="flex items-center gap-2 text-sm text-primary font-bold animate-pulse">
                           <svg
                             className="h-4 w-4 animate-spin"
                             xmlns="http://www.w3.org/2000/svg"
@@ -138,7 +138,7 @@ export function ReplyForm({ ticketId, customerEmail }: ReplyFormProps) {
             )}
           />
 
-          <label className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
               className="h-4 w-4 rounded border-input bg-background accent-primary disabled:opacity-50"
