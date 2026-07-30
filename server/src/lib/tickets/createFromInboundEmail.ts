@@ -4,6 +4,7 @@ import type { ZodError } from "zod";
 import { prisma } from "../prisma.js";
 import { enqueueProcessTicket } from "../../jobs/processTicket.js";
 import { AI_AGENT_EMAIL } from "../../config.js";
+import { inferRequesterType } from "./inferRequesterType.js";
 
 export type InboundEmailResult = {
   ticketId: string;
@@ -97,6 +98,7 @@ export async function createFromInboundEmail(
       status: "NEW",
       category: "OTHER",
       assignedToId: aiAgent?.id,
+      requesterType: inferRequesterType(fromEmail),
     },
     select: { id: true },
   });

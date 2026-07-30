@@ -2,9 +2,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import {
+  requesterTypeSchema,
   ticketCategorySchema,
   ticketStatusSchema,
   AGENT_VISIBLE_STATUSES,
+  type RequesterType,
   type TicketCategory,
   type TicketStatus,
 } from "core";
@@ -23,7 +25,11 @@ import { cn } from "@/lib/utils";
 import { useUpdateTicket } from "@/hooks/useUpdateTicket";
 import { useAgents } from "@/hooks/useAgents";
 import { FormRootErrorAlert } from "./UserAccountFormFields";
-import { CATEGORY_LABEL, STATUS_LABEL } from "./TicketsTable";
+import {
+  CATEGORY_LABEL,
+  REQUESTER_TYPE_LABEL,
+  STATUS_LABEL,
+} from "./TicketsTable";
 
 const selectClassName = cn(
   "flex h-10 w-full rounded-xl border border-input bg-card hover:bg-secondary/50 text-foreground px-3 py-2 text-sm transition-all duration-200 cursor-pointer",
@@ -34,6 +40,7 @@ const editTicketFormSchema = z.object({
   status: ticketStatusSchema,
   category: ticketCategorySchema,
   assigneeId: z.string(),
+  requesterType: z.union([requesterTypeSchema, z.literal("")]),
 });
 
 type EditTicketFormValues = z.infer<typeof editTicketFormSchema>;
@@ -52,6 +59,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
       status: ticket.status,
       category: ticket.category,
       assigneeId: ticket.assignedToId ?? "",
+      requesterType: ticket.requesterType ?? "",
     },
   });
 
@@ -60,6 +68,7 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
       status: ticket.status,
       category: ticket.category,
       assigneeId: ticket.assignedToId ?? "",
+      requesterType: ticket.requesterType ?? "",
     });
   }, [ticket, form]);
 
@@ -71,6 +80,8 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
         category: values.category,
         assignedToId:
           values.assigneeId === "" ? null : values.assigneeId,
+        requesterType:
+          values.requesterType === "" ? null : values.requesterType,
       },
       {
         onError: (e) => {
@@ -125,6 +136,28 @@ export function EditTicketForm({ ticket }: EditTicketFormProps) {
                         (value: TicketCategory) => (
                           <option key={value} value={value}>
                             {CATEGORY_LABEL[value]}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="requesterType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Requester type</FormLabel>
+                  <FormControl>
+                    <select className={selectClassName} {...field}>
+                      <option value="">Unknown</option>
+                      {requesterTypeSchema.options.map(
+                        (value: RequesterType) => (
+                          <option key={value} value={value}>
+                            {REQUESTER_TYPE_LABEL[value]}
                           </option>
                         ),
                       )}

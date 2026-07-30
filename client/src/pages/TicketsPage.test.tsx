@@ -22,6 +22,7 @@ const listTickets = [
     category: "NETWORK" as const,
     fromEmail: "jane.customer@gmail.com",
     fromName: "Jane Customer",
+    requesterType: null,
     assignedToId: null,
     createdById: null,
     createdAt: "2024-06-02T12:00:00.000Z",
@@ -34,6 +35,7 @@ const listTickets = [
     category: "ACCOUNT_ACCESS" as const,
     fromEmail: "billing@example.com",
     fromName: null,
+    requesterType: null,
     assignedToId: null,
     createdById: null,
     createdAt: "2024-06-01T12:00:00.000Z",
@@ -229,6 +231,31 @@ describe("TicketsPage", () => {
         params: {
           sort: "createdAt_desc",
           category: "ACCOUNT_ACCESS",
+          page: 1,
+          pageSize: 10,
+        },
+      });
+    });
+  });
+
+  it("requests requester type filter when the Requester type dropdown changes", async () => {
+    renderTicketsPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Cannot reset password")).toBeInTheDocument();
+    });
+
+    mockedGet.mockClear();
+
+    fireEvent.change(screen.getByLabelText("Requester type"), {
+      target: { value: "STUDENT" },
+    });
+
+    await waitFor(() => {
+      expect(mockedGet).toHaveBeenCalledWith("/tickets", {
+        params: {
+          sort: "createdAt_desc",
+          requesterType: "STUDENT",
           page: 1,
           pageSize: 10,
         },

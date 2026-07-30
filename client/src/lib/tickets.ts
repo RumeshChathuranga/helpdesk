@@ -49,6 +49,7 @@ export type TicketsListParams = {
   pageSize: number;
   status?: TicketListItem["status"];
   category?: TicketListItem["category"];
+  requesterType?: NonNullable<TicketListItem["requesterType"]>;
   search?: string;
 };
 
@@ -91,6 +92,7 @@ export async function fetchTickets(
       pageSize: params.pageSize,
       ...(params.status ? { status: params.status } : {}),
       ...(params.category ? { category: params.category } : {}),
+      ...(params.requesterType ? { requesterType: params.requesterType } : {}),
       ...(params.search ? { search: params.search } : {}),
     },
   });

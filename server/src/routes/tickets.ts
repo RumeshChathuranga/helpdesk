@@ -65,6 +65,7 @@ const ticketListSelect = {
   category: true,
   fromEmail: true,
   fromName: true,
+  requesterType: true,
   assignedToId: true,
   createdById: true,
   createdAt: true,
@@ -97,7 +98,7 @@ function buildTicketSearchWhere(search: string): Prisma.TicketWhereInput {
 }
 
 ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), async (req, res) => {
-  const { status, category, sort, search, page, pageSize } =
+  const { status, category, requesterType, sort, search, page, pageSize } =
     req.query as unknown as ListTicketsQuery;
   const orderBy = ticketListSortToOrderBy(sort ?? DEFAULT_TICKET_LIST_SORT);
 
@@ -111,6 +112,7 @@ ticketsRouter.get("/", requireAgent, validateQuery(listTicketsQuerySchema), asyn
   const where: Prisma.TicketWhereInput = {
     status: agentVisibleStatus ?? { notIn: ["NEW", "PROCESSING"] },
     ...(category ? { category } : {}),
+    ...(requesterType ? { requesterType } : {}),
     ...(search ? buildTicketSearchWhere(search) : {}),
   };
 
@@ -600,7 +602,7 @@ ticketsRouter.patch("/:id", requireAgent, validateBody(updateTicketBodySchema), 
     return;
   }
 
-  const { status, category, assignedToId } = req.body;
+  const { status, category, assignedToId, requesterType } = req.body;
 
   if (assignedToId) {
     const assignee = await prisma.user.findFirst({
@@ -619,6 +621,7 @@ ticketsRouter.patch("/:id", requireAgent, validateBody(updateTicketBodySchema), 
       ...(status !== undefined ? { status } : {}),
       ...(category !== undefined ? { category } : {}),
       ...(assignedToId !== undefined ? { assignedToId } : {}),
+      ...(requesterType !== undefined ? { requesterType } : {}),
     },
     select: {
       ...ticketListSelect,

@@ -16,6 +16,8 @@ export function TicketsPage() {
     setStatusFilter,
     categoryFilter,
     setCategoryFilter,
+    requesterTypeFilter,
+    setRequesterTypeFilter,
     page,
     pageSize,
     total,
@@ -41,9 +43,11 @@ export function TicketsPage() {
         search={searchInput}
         status={statusFilter}
         category={categoryFilter}
+        requesterType={requesterTypeFilter}
         onSearchChange={setSearchInput}
         onStatusChange={setStatusFilter}
         onCategoryChange={setCategoryFilter}
+        onRequesterTypeChange={setRequesterTypeFilter}
       />
 
       {isPending && (

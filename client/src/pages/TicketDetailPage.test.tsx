@@ -30,6 +30,7 @@ const detailTicket: TicketDetail = {
   category: "NETWORK" as const,
   fromEmail: "jane.customer@gmail.com",
   fromName: "Jane Customer",
+  requesterType: null,
   assignedToId: null,
   createdById: null,
   createdAt: "2024-06-02T12:00:00.000Z",
@@ -211,6 +212,7 @@ describe("TicketDetailPage", () => {
           status: "IN_PROGRESS",
           category: "OTHER",
           assignedToId: "agent-1",
+          requesterType: null,
         },
       );
     });

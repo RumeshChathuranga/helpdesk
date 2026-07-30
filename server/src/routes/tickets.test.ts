@@ -264,6 +264,39 @@ describe("GET /api/tickets", () => {
     expect(json.tickets).toHaveLength(1);
     expect(json.tickets[0]?.subject).toBe(`Page B ${runId}`);
   });
+
+  it("filters by requester type", async () => {
+    const runId = crypto.randomUUID();
+    const student = await prisma.ticket.create({
+      data: {
+        subject: `Student ${runId}`,
+        body: "Body",
+        status: "OPEN",
+        requesterType: "STUDENT",
+      },
+    });
+    const staff = await prisma.ticket.create({
+      data: {
+        subject: `Staff ${runId}`,
+        body: "Body",
+        status: "OPEN",
+        requesterType: "ACADEMIC_STAFF",
+      },
+    });
+    createdTicketIds.push(student.id, staff.id);
+
+    const res = await listTickets(
+      `?requesterType=STUDENT&search=${encodeURIComponent(runId)}&pageSize=100`,
+    );
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      tickets: { subject: string }[];
+    };
+    const subjects = json.tickets.map((ticket) => ticket.subject);
+    expect(subjects).toContain(`Student ${runId}`);
+    expect(subjects).not.toContain(`Staff ${runId}`);
+  });
 });
 
 describe("GET /api/tickets/:id", () => {
@@ -585,6 +618,27 @@ describe("PATCH /api/tickets/:id", () => {
     expect(json.ticket.status).toBe("IN_PROGRESS");
     expect(json.ticket.category).toBe("NETWORK");
     expect(json.ticket.assignedToId).toBe(agent.id);
+  });
+
+  it("clears requesterType when explicitly set to null", async () => {
+    const runId = crypto.randomUUID();
+    const ticket = await prisma.ticket.create({
+      data: {
+        subject: `Patch requester ${runId}`,
+        body: "Body",
+        status: "OPEN",
+        requesterType: "STUDENT",
+      },
+    });
+    createdTicketIds.push(ticket.id);
+
+    const res = await patchTicket(ticket.id, { requesterType: null });
+    expect(res.status).toBe(200);
+
+    const json = (await res.json()) as {
+      ticket: { requesterType: string | null };
+    };
+    expect(json.ticket.requesterType).toBeNull();
   });
 
   it("returns 404 for a missing ticket", async () => {

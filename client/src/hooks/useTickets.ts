@@ -13,6 +13,7 @@ import {
 } from "@/lib/tickets";
 import type {
   TicketCategoryFilter,
+  TicketRequesterTypeFilter,
   TicketStatusFilter,
 } from "@/pages/TicketFilters";
 
@@ -25,6 +26,8 @@ export function useTickets() {
   const [statusFilter, setStatusFilter] = useState<TicketStatusFilter>("ALL");
   const [categoryFilter, setCategoryFilter] =
     useState<TicketCategoryFilter>("ALL");
+  const [requesterTypeFilter, setRequesterTypeFilter] =
+    useState<TicketRequesterTypeFilter>("ALL");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -41,7 +44,7 @@ export function useTickets() {
 
   useEffect(() => {
     setPage(1);
-  }, [sort, statusFilter, categoryFilter, debouncedSearch]);
+  }, [sort, statusFilter, categoryFilter, requesterTypeFilter, debouncedSearch]);
 
   const listParams = useMemo(
     () => ({
@@ -50,9 +53,12 @@ export function useTickets() {
       pageSize: DEFAULT_TICKET_PAGE_SIZE,
       ...(statusFilter !== "ALL" ? { status: statusFilter } : {}),
       ...(categoryFilter !== "ALL" ? { category: categoryFilter } : {}),
+      ...(requesterTypeFilter !== "ALL"
+        ? { requesterType: requesterTypeFilter }
+        : {}),
       ...(debouncedSearch ? { search: debouncedSearch } : {}),
     }),
-    [sort, page, statusFilter, categoryFilter, debouncedSearch],
+    [sort, page, statusFilter, categoryFilter, requesterTypeFilter, debouncedSearch],
   );
 
   const query = useQuery({
@@ -75,6 +81,8 @@ export function useTickets() {
     setStatusFilter,
     categoryFilter,
     setCategoryFilter,
+    requesterTypeFilter,
+    setRequesterTypeFilter,
     page: query.data?.page ?? page,
     pageSize,
     total,

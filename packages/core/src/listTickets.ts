@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { FIELD_LIMITS } from "./fieldLimits.js";
-import { ticketCategorySchema, ticketStatusSchema } from "./ticketEnums.js";
+import {
+  requesterTypeSchema,
+  ticketCategorySchema,
+  ticketStatusSchema,
+} from "./ticketEnums.js";
 
 export const ticketListSortValues = [
   "subject_asc",
@@ -24,6 +28,7 @@ export const DEFAULT_TICKET_PAGE_SIZE = 10;
 export const listTicketsQuerySchema = z.object({
   status: ticketStatusSchema.optional(),
   category: ticketCategorySchema.optional(),
+  requesterType: requesterTypeSchema.optional(),
   sort: z.enum(ticketListSortValues).optional(),
   search: z
     .string()

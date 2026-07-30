@@ -6,7 +6,7 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table";
-import type { TicketCategory, TicketStatus } from "core";
+import type { RequesterType, TicketCategory, TicketStatus } from "core";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { AppLink } from "@/components/AppLink";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,6 +19,7 @@ export type TicketListItem = {
   category: TicketCategory;
   fromEmail: string | null;
   fromName: string | null;
+  requesterType: RequesterType | null;
   assignedToId: string | null;
   createdById: string | null;
   createdAt: string;
@@ -69,13 +70,56 @@ export const CATEGORY_LABEL: Record<TicketCategory, string> = {
   OTHER: "Other",
 };
 
+export const REQUESTER_TYPE_LABEL: Record<RequesterType, string> = {
+  STUDENT: "Student",
+  ACADEMIC_STAFF: "Academic staff",
+  ACADEMIC_SUPPORT_STAFF: "Academic support staff",
+  ADMINISTRATIVE_STAFF: "Administrative staff",
+  TECHNICAL_STAFF: "Technical staff",
+  NON_ACADEMIC_STAFF: "Non-academic staff",
+};
+
+export const REQUESTER_TYPE_BADGE: Record<RequesterType, string> = {
+  STUDENT:
+    "inline-flex rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-blue-400 border border-blue-500/20",
+  ACADEMIC_STAFF:
+    "inline-flex rounded-full bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-violet-400 border border-violet-500/20",
+  ACADEMIC_SUPPORT_STAFF:
+    "inline-flex rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-indigo-400 border border-indigo-500/20",
+  ADMINISTRATIVE_STAFF:
+    "inline-flex rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-amber-400 border border-amber-500/20",
+  TECHNICAL_STAFF:
+    "inline-flex rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-emerald-400 border border-emerald-500/20",
+  NON_ACADEMIC_STAFF:
+    "inline-flex rounded-full bg-zinc-500/10 px-2 py-0.5 text-[10px] font-mono font-semibold text-zinc-500 border border-zinc-500/20",
+};
+
 function requesterSortValue(ticket: TicketListItem): string {
   return [ticket.fromName, ticket.fromEmail].filter(Boolean).join(" ");
 }
 
+function RequesterTypeBadge({
+  requesterType,
+}: {
+  requesterType: RequesterType;
+}) {
+  return (
+    <span className={cn(REQUESTER_TYPE_BADGE[requesterType], "mt-1")}>
+      {REQUESTER_TYPE_LABEL[requesterType]}
+    </span>
+  );
+}
+
 function RequesterCell({ ticket }: { ticket: TicketListItem }) {
   if (!ticket.fromName && !ticket.fromEmail) {
-    return <span className="text-muted-foreground">—</span>;
+    if (!ticket.requesterType) {
+      return <span className="text-muted-foreground">—</span>;
+    }
+    return (
+      <div className="max-w-xs">
+        <RequesterTypeBadge requesterType={ticket.requesterType} />
+      </div>
+    );
   }
 
   if (ticket.fromName && ticket.fromEmail) {
@@ -85,14 +129,22 @@ function RequesterCell({ ticket }: { ticket: TicketListItem }) {
           {ticket.fromName}
         </div>
         <div className="text-[10px] text-muted-foreground truncate">{ticket.fromEmail}</div>
+        {ticket.requesterType && (
+          <RequesterTypeBadge requesterType={ticket.requesterType} />
+        )}
       </div>
     );
   }
 
   return (
-    <span className="text-foreground font-mono text-xs truncate block max-w-xs">
-      {ticket.fromName ?? ticket.fromEmail ?? ""}
-    </span>
+    <div className="min-w-0 max-w-xs">
+      <span className="text-foreground font-mono text-xs truncate block">
+        {ticket.fromName ?? ticket.fromEmail ?? ""}
+      </span>
+      {ticket.requesterType && (
+        <RequesterTypeBadge requesterType={ticket.requesterType} />
+      )}
+    </div>
   );
 }
 

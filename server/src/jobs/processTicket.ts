@@ -195,6 +195,16 @@ export async function runProcessTicket({
     throw new Error("GITHUB_MODELS_TOKEN not set");
   }
 
+  // Bounded value we derived from the sender's address, never text from the
+  // email itself — safe to place directly in the system prompt.
+  const ticketForRequesterType = await prisma.ticket.findUnique({
+    where: { id: ticketId },
+    select: { requesterType: true },
+  });
+  const requesterTypeLine = ticketForRequesterType?.requesterType
+    ? `\n## Requester\nThe requester's role is: ${ticketForRequesterType.requesterType}.\n`
+    : "";
+
   // ── Step 1: Classify ──────────────────────────────────────────────────────
   let category: TicketCategory = "OTHER";
   try {
@@ -263,7 +273,7 @@ export async function runProcessTicket({
     const { text: resolveText } = await generateText({
       model,
       system: `You are the AI triage assistant for the ${BRAND_NAME}. Your job is to ${PROMPT_TAG.resolve} provided below, for students and staff of the University of Moratuwa.
-
+${requesterTypeLine}
 ## Knowledge Base
 ${knowledgeBase}
 
