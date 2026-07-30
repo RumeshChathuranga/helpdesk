@@ -54,6 +54,26 @@ test.describe("Successful login", () => {
     ).toBeVisible();
     await expect(page.getByRole("link", { name: "Users" })).not.toBeVisible();
   });
+
+  // Visiting a protected route first bounces to /login via an SPA-internal
+  // redirect (not a full page reload), leaving the client-side session store
+  // already primed from that check. Logging in from that same page instance
+  // must not require a second submit to reach the dashboard.
+  test("logging in works on the first submit after being redirected from a protected route", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL("/login");
+
+    await page.getByLabel("Email").fill(process.env.SEED_ADMIN_EMAIL!);
+    await page.getByLabel("Password").fill(process.env.SEED_ADMIN_PASSWORD!);
+    await page.getByRole("button", { name: "Sign in" }).click();
+
+    await expect(page).toHaveURL("/dashboard", { timeout: 3000 });
+    await expect(
+      page.getByRole("heading", { name: "Dashboard" })
+    ).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -24,6 +24,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  // ProtectedRoute reads this same session store synchronously on mount.
+  // signIn.email() resolving does not itself update it (Better Auth updates
+  // the store via a signal it flips ~10ms after the request settles), so
+  // navigating right after signIn resolves can land on a stale
+  // not-yet-authenticated read and immediately bounce back to /login.
+  // Awaiting an explicit refetch here guarantees the store is current
+  // before we navigate.
+  const { refetch: refetchSession } = authClient.useSession();
 
   const form = useForm<LoginBody>({
     resolver: zodResolver(loginBodySchema),
@@ -41,6 +49,7 @@ export function LoginPage() {
       return;
     }
 
+    await refetchSession();
     navigate("/dashboard", { replace: true });
   }
 
