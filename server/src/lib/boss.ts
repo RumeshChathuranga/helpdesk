@@ -24,3 +24,13 @@ export async function startBoss(): Promise<void> {
   await boss.start();
   console.log("[pg-boss] Started");
 }
+
+/**
+ * Stops pg-boss gracefully: waits up to `timeoutMs` for in-flight jobs to
+ * finish before closing the connection pool, so a deploy doesn't kill a job
+ * mid-flight.
+ */
+export async function stopBoss(timeoutMs: number): Promise<void> {
+  await boss.stop({ graceful: true, timeout: timeoutMs, close: true });
+  console.log("[pg-boss] Stopped");
+}
