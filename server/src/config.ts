@@ -1,3 +1,52 @@
+// ─── Process role ─────────────────────────────────────────────────────────────
+
+export type AppRole = "all" | "api" | "worker";
+
+/** Which half of the app this process runs. "all" (the default) runs the API
+ *  and every pg-boss worker in one process — what dev, tests, and a single
+ *  container both want. "api"/"worker" split them across two containers so
+ *  AI throughput scales independently of HTTP capacity. */
+function readAppRole(): AppRole {
+  const raw = process.env.APP_ROLE ?? "all";
+  if (raw !== "all" && raw !== "api" && raw !== "worker") {
+    console.error(`FATAL: APP_ROLE must be one of all|api|worker (got ${JSON.stringify(raw)})`);
+    process.exit(1);
+  }
+  return raw;
+}
+export const APP_ROLE: AppRole = readAppRole();
+
+// ─── Graceful shutdown ────────────────────────────────────────────────────────
+
+/** Delay between flipping /api/health/ready to 503 and closing the HTTP
+ *  listener, so a load balancer has time to observe the 503 and stop routing
+ *  new requests before the socket actually closes. Zero outside production —
+ *  nothing is watching the readiness probe in dev. */
+export const SHUTDOWN_DRAIN_MS = Number(
+  process.env.SHUTDOWN_DRAIN_MS ?? (process.env.NODE_ENV === "production" ? 5000 : 0),
+);
+
+/** Ceiling on how long pg-boss waits for in-flight jobs to finish during
+ *  shutdown before forcing the connection pool closed. */
+export const SHUTDOWN_JOB_TIMEOUT_MS = Number(process.env.SHUTDOWN_JOB_TIMEOUT_MS ?? 25000);
+
+/** Watchdog for the whole shutdown sequence — if it hasn't exited by then,
+ *  something is stuck, so force-exit(1) rather than hang until SIGKILL. */
+export const SHUTDOWN_TIMEOUT_MS = Number(process.env.SHUTDOWN_TIMEOUT_MS ?? 30000);
+
+// ─── Embedding model ──────────────────────────────────────────────────────────
+
+/** Directory transformers.js caches model weights in. Unset uses the library
+ *  default (inside node_modules) — what local dev wants. The release image
+ *  sets this to a path baked with the weights at build time. */
+export const MODEL_CACHE_DIR = process.env.MODEL_CACHE_DIR;
+
+/** Whether transformers.js may fall back to downloading from the HF Hub. Set
+ *  false in the release image so a missing baked model fails loudly at
+ *  startup instead of silently paying an 87 MB download on the first ticket
+ *  after every deploy. */
+export const ALLOW_REMOTE_MODELS = (process.env.ALLOW_REMOTE_MODELS ?? "true") === "true";
+
 /** AI agent's user account email — must match a seeded User row for auto-assignment to work. */
 export const AI_AGENT_EMAIL = process.env.AI_AGENT_EMAIL ?? "ai@cites.uom.lk";
 
