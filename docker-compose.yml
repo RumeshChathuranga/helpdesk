@@ -1,26 +1,27 @@
-services:
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://user:password@db:5432/helpdesk?schema=public
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
-      - BETTER_AUTH_URL=http://localhost:3000
-      - CLIENT_URL=http://localhost:3000
-      - EMAIL_DRIVER=${EMAIL_DRIVER:-log}
-      - EMAIL_FROM=${EMAIL_FROM:-support@example.com}
-      - EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Helpdesk}
-      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
-      - SMTP_PORT=${SMTP_PORT:-465}
-      - SMTP_SECURE=${SMTP_SECURE:-true}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-    depends_on:
-      db:
-        condition: service_healthy
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://user:password@db:5432/helpdesk?schema=public
+  BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET must be set}
+  BETTER_AUTH_URL: http://localhost:3000
+  CLIENT_URL: http://localhost:3000
+  GITHUB_MODELS_TOKEN: ${GITHUB_MODELS_TOKEN:-}
+  INBOUND_WEBHOOK_SECRET: ${INBOUND_WEBHOOK_SECRET:-}
+  AI_AGENT_EMAIL: ${AI_AGENT_EMAIL:-ai@cites.uom.lk}
+  SUPPORT_EMAIL: ${SUPPORT_EMAIL:-cites@uom.lk}
+  BRAND_NAME: ${BRAND_NAME:-University of Moratuwa — CITeS IT Help Desk}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+  EMAIL_DRIVER: ${EMAIL_DRIVER:-log}
+  EMAIL_FROM: ${EMAIL_FROM:-support@example.com}
+  EMAIL_FROM_NAME: ${EMAIL_FROM_NAME:-Helpdesk}
+  EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
+  EMAIL_MESSAGE_ID_DOMAIN: ${EMAIL_MESSAGE_ID_DOMAIN:-}
+  SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+  SMTP_PORT: ${SMTP_PORT:-465}
+  SMTP_SECURE: ${SMTP_SECURE:-true}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASSWORD: ${SMTP_PASSWORD:-}
 
+services:
   db:
     image: pgvector/pgvector:pg15
     ports:
@@ -36,6 +37,51 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # Runs once, migrates the schema, and exits. Deliberately not part of the
+  # api/worker start command — two replicas booting simultaneously would both
+  # try to migrate against the same database at once.
+  migrate:
+    build: .
+    command: ["bun", "run", "db:migrate:deploy"]
+    restart: "no"
+    healthcheck:
+      disable: true
+    environment:
+      <<: *app-env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    init: true
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      APP_ROLE: api
+      PORT: "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      APP_ROLE: worker
+      PORT: "3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   postgres_data:
