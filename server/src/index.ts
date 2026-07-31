@@ -1,10 +1,9 @@
 import "./instrument.js";
-import { createApp } from "./app.js";
+import { createApp, createHealthApp } from "./app.js";
+import { APP_ROLE } from "./config.js";
 import { startBoss } from "./lib/boss.js";
-import { registerProcessTicketWorker } from "./jobs/processTicket.js";
-import { registerEmbedDocumentWorker } from "./jobs/embed-document.js";
-import { registerSweepStaleTicketsWorker } from "./jobs/sweepStaleTickets.js";
-import { registerSendEmailWorker } from "./jobs/sendEmail.js";
+import { installShutdownHandlers } from "./lib/shutdown.js";
+import { registerAllWorkers } from "./jobs/registerWorkers.js";
 
 if (!process.env.BETTER_AUTH_SECRET) {
   console.error("FATAL: BETTER_AUTH_SECRET env var is not set");
@@ -18,15 +17,18 @@ if (!process.env.DATABASE_URL) {
 
 const PORT = Number(process.env.PORT) || 3000;
 
-const app = createApp();
+// The worker role serves health checks only — no ticket API surface.
+const app = APP_ROLE === "worker" ? createHealthApp() : createApp();
 
-// Start pg-boss and register all job workers before accepting HTTP traffic
+// Every role starts pg-boss: the API needs it to enqueue (boss.send) even
+// though it registers no workers itself. Only "all"/"worker" consume jobs.
 await startBoss();
-await registerProcessTicketWorker();
-await registerEmbedDocumentWorker();
-await registerSweepStaleTicketsWorker();
-await registerSendEmailWorker();
+if (APP_ROLE !== "api") {
+  await registerAllWorkers();
+}
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`[${APP_ROLE}] listening on http://localhost:${PORT}`);
 });
+
+installShutdownHandlers(server);
