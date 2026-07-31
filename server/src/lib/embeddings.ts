@@ -1,11 +1,21 @@
 import {
+  env as transformersEnv,
   AutoTokenizer,
   pipeline,
   type FeatureExtractionPipeline,
   type PreTrainedTokenizer,
 } from "@huggingface/transformers";
+import { ALLOW_REMOTE_MODELS, MODEL_CACHE_DIR } from "../config.js";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
+
+// Must run before the first pipeline()/AutoTokenizer.from_pretrained() call.
+// Unset MODEL_CACHE_DIR keeps the library default (inside node_modules), which
+// is what local dev wants; the release image bakes weights into MODEL_CACHE_DIR
+// and sets ALLOW_REMOTE_MODELS=false so a missing bake fails loudly instead of
+// silently downloading 87 MB from the HF Hub on the first ticket after deploy.
+if (MODEL_CACHE_DIR) transformersEnv.cacheDir = MODEL_CACHE_DIR;
+transformersEnv.allowRemoteModels = ALLOW_REMOTE_MODELS;
 
 /** Texts per forward pass. Bounds peak memory when embedding a chunked document. */
 const EMBEDDING_BATCH_SIZE = 16;
@@ -72,4 +82,12 @@ export async function embedText(text: string): Promise<EmbedTextResult> {
     throw new Error("Embedding pipeline returned no vector");
   }
   return result;
+}
+
+/** Forces the tokenizer and pipeline to load, writing weights to
+ *  MODEL_CACHE_DIR. Run at image build time so the release image ships with
+ *  the model baked in and no request pays the download cost. */
+export async function warmEmbeddingModel(): Promise<void> {
+  await getTokenCounter();
+  await embedText("warmup");
 }
