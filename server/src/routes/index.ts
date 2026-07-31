@@ -6,9 +6,7 @@ import { knowledgeRouter } from "./knowledge.js";
 
 export const router: IRouter = Router();
 
-router.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
+// /health is mounted separately in app.ts, ahead of the rate limiters.
 
 router.use("/webhooks", inboundEmailWebhookRouter);
 router.use("/tickets", ticketsRouter);

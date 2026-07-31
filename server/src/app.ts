@@ -7,6 +7,7 @@ import { toNodeHandler } from "better-auth/node";
 import * as Sentry from "@sentry/bun";
 import { auth } from "./lib/auth.js";
 import { router } from "./routes/index.js";
+import { healthRouter } from "./routes/health.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
@@ -35,7 +36,7 @@ export function createApp(): Express {
   const app = express();
 
   app.disable("x-powered-by");
-  // One proxy hop (Railway) sits in front of the app; without this every client
+  // One reverse-proxy hop sits in front of the app; without this every client
   // shares a single rate-limit bucket keyed on the proxy's IP.
   app.set("trust proxy", 1);
 
@@ -57,6 +58,10 @@ export function createApp(): Express {
       credentials: true,
     })
   );
+
+  // Probes must not consume the API rate-limit bucket — a 5s readiness probe
+  // is 180 requests per 15-minute window, and apiLimiter's ceiling is 200.
+  app.use("/api/health", healthRouter);
 
   if (process.env.NODE_ENV === "production") {
     app.use("/api/auth", authLimiter);
@@ -88,6 +93,22 @@ export function createApp(): Express {
   // Sentry error handler must be registered before custom error handlers
   Sentry.setupExpressErrorHandler(app);
 
+  app.use(notFound);
+  app.use(errorHandler);
+
+  return app;
+}
+
+/** Minimal app for the worker role: helmet + health routes only, no ticket
+ *  API surface. Gives Kubernetes/Docker a real liveness/readiness endpoint
+ *  for the worker container without exposing routes it has no business
+ *  serving. */
+export function createHealthApp(): Express {
+  const app = express();
+
+  app.disable("x-powered-by");
+  app.use(helmet());
+  app.use("/api/health", healthRouter);
   app.use(notFound);
   app.use(errorHandler);
 
