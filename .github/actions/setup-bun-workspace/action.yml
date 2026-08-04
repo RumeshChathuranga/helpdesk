@@ -15,11 +15,15 @@ inputs:
     default: "false"
   database-url:
     description: >
-      DATABASE_URL for the Prisma generate step. A placeholder connection
+      DATABASE_URL for `bun install` and the Prisma generate step. The server
+      workspace's postinstall is `prisma generate`, so the install itself
+      needs this too — not just the generate step. A placeholder connection
       string is fine for jobs that never touch a real database — Prisma
       only needs it to be present, not reachable, to generate the client.
+      Must be non-empty: prisma.config.ts fails the same way on "" as on
+      unset.
     required: false
-    default: ""
+    default: "postgresql://user:password@localhost:5432/placeholder"
 
 runs:
   using: composite
@@ -38,6 +42,12 @@ runs:
     - name: bun install
       shell: bash
       run: bun install --frozen-lockfile
+      env:
+        # server/package.json's postinstall is `bunx prisma generate`, which
+        # loads prisma.config.ts and throws PrismaConfigEnvError when
+        # DATABASE_URL is missing. Locally this is invisible because Bun
+        # auto-loads server/.env; a CI runner has no such file.
+        DATABASE_URL: ${{ inputs.database-url }}
 
     - name: Generate Prisma client
       if: inputs.prisma-generate == 'true'

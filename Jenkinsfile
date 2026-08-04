@@ -19,6 +19,13 @@ pipeline {
   stages {
     stage('Install') {
       agent { docker { image "${env.BUN_IMAGE}" } }
+      environment {
+        // server/package.json's postinstall is `bunx prisma generate`, so the
+        // install itself loads prisma.config.ts and needs DATABASE_URL — this
+        // is not only the Typecheck stage's concern. Locally it's invisible
+        // because Bun auto-loads server/.env; this container has no such file.
+        DATABASE_URL = "${env.PLACEHOLDER_DATABASE_URL}"
+      }
       steps {
         sh 'bun install --frozen-lockfile'
       }
