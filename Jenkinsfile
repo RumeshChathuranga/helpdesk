@@ -27,6 +27,15 @@ pipeline {
         DATABASE_URL = "${env.PLACEHOLDER_DATABASE_URL}"
       }
       steps {
+        // Jenkins workspaces persist across builds (unlike GitHub Actions'
+        // always-fresh runners), so a previous build's node_modules can
+        // still be sitting here. `--frozen-lockfile` only guarantees the
+        // *current* lockfile's packages are present — it doesn't prune
+        // packages left behind by an older lockfile — so a dependency that
+        // moved versions (e.g. zod ^4.3.6 -> ^4.4.3) can leave both versions
+        // on disk and let module resolution pick the stale one. Wipe first
+        // so every build installs from a clean slate.
+        sh 'rm -rf node_modules client/node_modules server/node_modules packages/core/node_modules'
         sh 'bun install --frozen-lockfile'
       }
     }
