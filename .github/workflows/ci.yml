@@ -29,18 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
 
       - name: ESLint (client + server + core)
         run: bun run lint
@@ -52,24 +43,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
+      # The server imports generated Prisma types, so tsc needs the client
+      # first; prisma.config.ts only needs DATABASE_URL to be present, not
+      # reachable, for jobs that never touch a real database.
+      - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
-
-      # The server imports generated Prisma types, so tsc needs the client first.
-      - name: Generate Prisma client
-        run: bun run --filter server db:generate
-        env:
-          DATABASE_URL: ${{ env.PLACEHOLDER_DATABASE_URL }}
+          prisma-generate: "true"
+          database-url: ${{ env.PLACEHOLDER_DATABASE_URL }}
 
       - name: tsc --noEmit (client + server + core)
         run: bun run typecheck
@@ -81,18 +62,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
 
       - name: Vitest
         run: bun run test:client
@@ -129,27 +101,17 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
+          prisma-generate: "true"
+          database-url: ${{ env.DATABASE_URL }}
 
       # server/.env.test is gitignored; the committed example holds the same
       # values (DB on 5433, seed credentials, 32-char webhook secret) and is
       # what src/test/setup.ts loads with `override: true`.
       - name: Create server/.env.test
         run: cp server/.env.test.example server/.env.test
-
-      - name: Generate Prisma client
-        run: bun run --filter server db:generate
 
       - name: Apply migrations
         run: bun run db:migrate:deploy
@@ -168,18 +130,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Cache Bun install cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
-      - run: bun install --frozen-lockfile
 
       # Informational: the full advisory list, including transitive ones we
       # currently have no fixed version for. Never fails the build.
@@ -193,3 +146,19 @@ jobs:
       # `--audit-level=high` once those transitive deps have patched releases.
       - name: Fail on critical advisories
         run: bun audit --audit-level=critical
+
+  build:
+    name: Build image
+    needs: [lint, typecheck, test-client, test-server]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      security-events: write
+    uses: ./.github/workflows/build-image.yml
+    with:
+      # PRs build and scan only — nothing unscanned is ever published.
+      # Only a push to master (not a PR from a fork, which can't be
+      # trusted with packages:write/id-token:write anyway) publishes and
+      # signs.
+      push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}

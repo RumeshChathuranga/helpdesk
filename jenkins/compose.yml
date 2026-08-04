@@ -1,0 +1,20 @@
+# Local-only Jenkins fluency demo. GitHub Actions (../.github/workflows/)
+# is the real CI gate — see CLAUDE.md's DevOps work section.
+services:
+  jenkins:
+    build: .
+    ports:
+      # 8080 avoided on the host to stay clear of anything else in this
+      # project's port range (client 5173, api 3000, db 5433).
+      - "8090:8080"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Sibling-container access to the host's Docker daemon — see the
+      # Dockerfile comment. Whoever owns this socket on the host decides
+      # what group_add below actually needs to be.
+      - /var/run/docker.sock:/var/run/docker.sock
+    group_add:
+      - "${DOCKER_GID:?Set DOCKER_GID to the host's docker group id — see devops-docs/setup/jenkins-local.md}"
+
+volumes:
+  jenkins_home:
