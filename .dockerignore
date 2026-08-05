@@ -33,3 +33,9 @@ Dockerfile
 # Git
 .git
 .github
+
+# Deployment manifests — nothing in the image reads them, and leaving them in
+# the context busts the build cache on every chart edit.
+deploy
+Jenkinsfile
+jenkins

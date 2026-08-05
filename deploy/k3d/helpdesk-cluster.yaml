@@ -1,0 +1,45 @@
+# k3d cluster for local Kubernetes work. Create it with:
+#   k3d cluster create --config deploy/k3d/helpdesk-cluster.yaml
+# See devops-docs/setup/k3d-cluster.md for the walkthrough.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: helpdesk
+
+servers: 1
+# Two agents so the API's pod anti-affinity and the PodDisruptionBudget mean
+# something — on a single node they'd both be no-ops.
+agents: 2
+
+# Pinned to match the local kubectl minor (1.36) so client/server never skew.
+image: docker.io/rancher/k3s:v1.36.3-k3s1
+
+# The release image is ~1.85 GB, so `k3d image import` on every rebuild is
+# painful. A cluster-local registry lets us push once and pull by digest.
+registries:
+  create:
+    name: helpdesk-registry
+    host: "0.0.0.0"
+    hostPort: "5111"
+
+ports:
+  # Traefik's web entrypoint. Without this the Ingress is unreachable from the
+  # host, and `kubectl port-forward` would drop connections on pod delete —
+  # which is exactly the thing the zero-downtime test is trying to measure.
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+
+options:
+  k3d:
+    wait: true
+    timeout: 180s
+  # Nothing is disabled here on purpose. This phase depends on three things
+  # k3s bundles: Traefik (Ingress), metrics-server (the HPA reads it), and
+  # kube-router's network-policy controller — without that last one a
+  # NetworkPolicy would be accepted by the API server and silently ignored.
+  # ServiceLB must stay too: it is what binds :80 on the nodes for Traefik's
+  # LoadBalancer Service, which is what the port mapping above reaches.
+  kubeconfig:
+    updateDefaultKubeconfig: true
+    switchCurrentContext: true
