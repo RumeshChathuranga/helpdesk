@@ -1,0 +1,35 @@
+# Name of the CNPG Cluster. The operator derives resource names from it — the
+# app chart's `database.secretName` must match "<name>-app".
+name: helpdesk-db
+
+# CNPG's "standard" operand images bundle pgvector; the "minimal" ones do not.
+# Pinned to 15 to match docker-compose.yml, the CI service container and
+# server/.env.test — the migrations and stored functions are only tested there.
+image: ghcr.io/cloudnative-pg/postgresql:15-standard-bookworm
+
+# 1 for a laptop, 3 for real HA. This field is the only thing that changes.
+instances: 1
+
+bootstrap:
+  database: helpdesk
+  owner: helpdesk
+
+storage:
+  size: 5Gi
+  storageClass: ""
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+postgresql:
+  parameters:
+    max_connections: "100"
+
+# The operator can mint a "postgres" superuser secret. Nothing needs it —
+# postInitApplicationSQL below already runs privileged — so leave it off.
+enableSuperuserAccess: false

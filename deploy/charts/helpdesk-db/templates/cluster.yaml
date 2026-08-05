@@ -1,0 +1,37 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Values.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  instances: {{ .Values.instances }}
+  imageName: {{ .Values.image }}
+
+  bootstrap:
+    initdb:
+      database: {{ .Values.bootstrap.database }}
+      owner: {{ .Values.bootstrap.owner }}
+      # Runs as superuser inside the application database. The app's own
+      # migration (20260708000000_init_pgvector) also issues CREATE EXTENSION,
+      # but the CNPG-created owner role is not a superuser and may not be
+      # allowed to — doing it here makes that statement a harmless no-op.
+      postInitApplicationSQL:
+        - CREATE EXTENSION IF NOT EXISTS vector
+
+  postgresql:
+    parameters:
+      {{- toYaml .Values.postgresql.parameters | nindent 6 }}
+
+  enableSuperuserAccess: {{ .Values.enableSuperuserAccess }}
+
+  storage:
+    size: {{ .Values.storage.size }}
+    {{- with .Values.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+
+  resources:
+    {{- toYaml .Values.resources | nindent 4 }}

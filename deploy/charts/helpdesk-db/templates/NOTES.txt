@@ -1,0 +1,20 @@
+CloudNativePG cluster "{{ .Values.name }}" requested ({{ .Values.instances }} instance(s), PostgreSQL {{ .Chart.AppVersion }}).
+
+Wait for it to come up:
+
+  kubectl wait --for=condition=Ready cluster/{{ .Values.name }} -n {{ .Release.Namespace }} --timeout=300s
+
+The operator generates a connection secret the app chart reads directly, so no
+database password is ever typed by hand or stored in values:
+
+  secret:   {{ .Values.name }}-app
+  key:      uri
+  service:  {{ .Values.name }}-rw.{{ .Release.Namespace }}.svc:5432
+
+Confirm pgvector is present:
+
+  kubectl exec -n {{ .Release.Namespace }} {{ .Values.name }}-1 -c postgres -- \
+    psql -d {{ .Values.bootstrap.database }} -c "SELECT extversion FROM pg_extension WHERE extname='vector'"
+
+This release owns the data. `helm uninstall` on the app release cannot touch it;
+removing this one leaves the PVC behind by design.

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: helpdesk-db
+description: PostgreSQL for the helpdesk, managed by the CloudNativePG operator
+type: application
+version: 0.1.0
+appVersion: "15"
