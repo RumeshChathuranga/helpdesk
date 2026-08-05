@@ -1,0 +1,8 @@
+apiVersion: v2
+name: helpdesk
+description: AI-powered helpdesk — API and pg-boss worker deployments, with migrations as a Helm hook
+type: application
+version: 0.1.0
+# Overridden per environment by image.tag; the chart default is the branch tag
+# that .github/workflows/build-image.yml publishes.
+appVersion: "latest"

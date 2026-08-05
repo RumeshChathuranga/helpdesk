@@ -1,0 +1,52 @@
+{{- if .Values.migrate.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  # Hooks are not tracked in the release, so the name must be stable and the
+  # delete policy has to clean up the previous run itself.
+  name: {{ include "helpdesk.fullname" . }}-migrate
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Runs before any api/worker pod exists on install, and before a new
+    # ReplicaSet rolls on upgrade. Two replicas booting together can't race the
+    # migration because neither of them runs it.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    # before-hook-creation clears the previous Job; hook-succeeded drops this
+    # one only if it passed — a failed migration stays put for kubectl logs.
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "helpdesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "helpdesk.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "helpdesk.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # prisma is a regular dependency of server/package.json, so this runs
+          # in the unmodified release image — no migration-specific build.
+          command: ["bun", "run", "db:migrate:deploy"]
+          envFrom:
+            {{- include "helpdesk.envFrom" . | nindent 12 }}
+          env:
+            {{- include "helpdesk.databaseEnv" . | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+{{- end }}

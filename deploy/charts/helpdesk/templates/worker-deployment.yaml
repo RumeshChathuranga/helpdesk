@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helpdesk.fullname" . }}-worker
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  strategy:
+    {{- toYaml .Values.worker.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "helpdesk.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "helpdesk.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "helpdesk.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # stopBoss() lets in-flight jobs finish for up to SHUTDOWN_JOB_TIMEOUT_MS
+      # before the process exits, so a ticket mid-classification isn't lost.
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "helpdesk.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # No Service points here — the port exists so the kubelet can probe.
+          # APP_ROLE=worker still serves createHealthApp().
+          ports:
+            - name: http
+              containerPort: {{ .Values.worker.port }}
+              protocol: TCP
+          envFrom:
+            {{- include "helpdesk.envFrom" . | nindent 12 }}
+          env:
+            - name: APP_ROLE
+              value: worker
+            - name: PORT
+              value: {{ .Values.worker.port | quote }}
+            {{- include "helpdesk.databaseEnv" . | nindent 12 }}
+          {{- include "helpdesk.probes" (dict "root" $) | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}

@@ -1,0 +1,174 @@
+image:
+  repository: ghcr.io/rumeshchathuranga/helpdesk
+  # Empty means .Chart.AppVersion. Environments pin the sha-<longsha> tag that
+  # build-image.yml publishes.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  name: ""
+
+# Secret created by hand (see devops-docs/setup/helm-install.md) and mounted
+# wholesale with envFrom. Phase 3 replaces it with a SealedSecret of the same
+# name and this chart does not change.
+existingSecret: helpdesk-secrets
+
+database:
+  # CloudNativePG generates this secret; the "uri" key is a ready-made
+  # connection string, so no database password is ever typed or templated.
+  secretName: helpdesk-db-app
+  secretKey: uri
+  # Used by the NetworkPolicy to find the Postgres pods.
+  clusterName: helpdesk-db
+
+# Non-secret environment. Mirrors the x-app-env anchor in docker-compose.yml.
+env:
+  NODE_ENV: production
+  BETTER_AUTH_URL: http://helpdesk.localtest.me
+  CLIENT_URL: http://helpdesk.localtest.me
+  AI_AGENT_EMAIL: ai@cites.uom.lk
+  SUPPORT_EMAIL: cites@uom.lk
+  BRAND_NAME: University of Moratuwa — CITeS IT Help Desk
+  EMAIL_DRIVER: log
+  EMAIL_FROM: support@example.com
+  EMAIL_FROM_NAME: Helpdesk
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: "465"
+  SMTP_SECURE: "true"
+  # Shutdown tuning. terminationGracePeriodSeconds below must stay above
+  # SHUTDOWN_TIMEOUT_MS, or the kubelet SIGKILLs the pod mid-drain.
+  SHUTDOWN_DRAIN_MS: "5000"
+  SHUTDOWN_JOB_TIMEOUT_MS: "25000"
+  SHUTDOWN_TIMEOUT_MS: "30000"
+
+# Applied to every pod. Matches the image's USER bun (uid 1000).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+  # readOnlyRootFilesystem is deliberately off: Prisma and transformers.js
+  # both write into the working tree at runtime.
+  readOnlyRootFilesystem: false
+
+api:
+  replicaCount: 2
+  port: 3000
+  # maxUnavailable 0 is what makes a rolling update non-disruptive: a new pod
+  # must pass its readiness probe before an old one is allowed to go away.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  # Worst case drain is SHUTDOWN_DRAIN_MS + SHUTDOWN_JOB_TIMEOUT_MS with a
+  # watchdog at SHUTDOWN_TIMEOUT_MS (30s). Kubernetes' default 30 would cut it.
+  terminationGracePeriodSeconds: 45
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  podAntiAffinity: preferred
+  nodeSelector: {}
+  tolerations: []
+
+worker:
+  replicaCount: 1
+  port: 3000
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 0
+  terminationGracePeriodSeconds: 45
+  # Only the worker role runs the ONNX embedding pipeline (MiniLM, batch 16),
+  # so it is the memory-hungry half of the split.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  nodeSelector: {}
+  tolerations: []
+
+migrate:
+  enabled: true
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# Both roles serve these — APP_ROLE=worker still runs createHealthApp().
+probes:
+  startup:
+    # boss.start() is awaited before app.listen(), so a slow Postgres means the
+    # port never binds. This budget (30 x 5s) is what stops the liveness probe
+    # from killing a pod that is still legitimately booting.
+    periodSeconds: 5
+    failureThreshold: 30
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    periodSeconds: 5
+    # Must exceed the endpoint's own 2000ms SELECT 1 race, or the probe gives
+    # up before the check it is waiting on does.
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  # localtest.me resolves to 127.0.0.1 with no /etc/hosts edit. Must match
+  # BETTER_AUTH_URL and CLIENT_URL or auth cookies and CORS will not line up.
+  host: helpdesk.localtest.me
+  annotations: {}
+  tls: []
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+networkPolicy:
+  enabled: true
+  # Namespace Traefik runs in. k3s ships it in kube-system.
+  ingressControllerNamespace: kube-system
+  # 443 for GitHub Models and Sentry, 465 for SMTP. No huggingface.co egress is
+  # needed — the MiniLM weights are baked into the image.
+  egressPorts: [443, 465]
+  # Only needed if the CNI drops kubelet probe traffic under a default-deny
+  # ingress rule. Symptom: pods flip to NotReady the moment the policy applies.
+  # k3s node IPs sit on the k3d Docker network, e.g. ["172.18.0.0/16"].
+  probeSourceCIDRs: []
