@@ -60,6 +60,12 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV APP_ROLE=all
 
+# Debian security updates on top of the pinned base. The CI Trivy gate fails on
+# any fixable CRITICAL, and the base image lags Debian's openssl fixes.
+RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
+ && rm -rf /var/lib/apt/lists/*
+
 COPY --from=install-prod /temp/prod/node_modules node_modules
 COPY --from=build /usr/src/app/client/dist client/dist
 COPY --from=build /usr/src/app/server server
@@ -69,6 +75,11 @@ COPY --from=install-prod /temp/prod/server/node_modules server/node_modules
 COPY --from=install-prod /temp/prod/packages/core/node_modules packages/core/node_modules
 COPY --from=build /models /models
 COPY package.json bun.lock ./
+
+# Bun's --production only prunes the root package's devDependencies, not a
+# workspace's, so the client's build toolchain lands in the prod tree too.
+# esbuild ships a Go binary that nothing here executes but Trivy still flags.
+RUN rm -rf node_modules/.bun/*esbuild*
 
 # The client above was generated against the dev dependency tree, which lives
 # at a different hash-keyed path than the production tree just installed —
