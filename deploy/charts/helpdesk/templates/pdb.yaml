@@ -1,0 +1,18 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "helpdesk.fullname" . }}-api
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  # Voluntary disruptions only — a node drain or cluster upgrade can't take
+  # the last API pod. Deliberately not applied to the worker: minAvailable 1
+  # against a single replica would block node drains forever.
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "helpdesk.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+{{- end }}

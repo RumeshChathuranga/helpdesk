@@ -1,0 +1,31 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "helpdesk.fullname" . }}
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          # One rule for everything: in production the API pod also serves
+          # client/dist and SPA-falls-back anything that isn't /api.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "helpdesk.fullname" . }}-api
+                port:
+                  number: {{ .Values.service.port }}
+{{- end }}
