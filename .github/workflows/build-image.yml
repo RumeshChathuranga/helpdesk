@@ -18,10 +18,8 @@ on:
         description: sha256 digest of the pushed image (empty if push=false)
         value: ${{ jobs.build.outputs.digest }}
 
-# Requested here for documentation/least-privilege; the calling job must
-# grant at least this much, or GITHUB_TOKEN falls back to its default scope
-# and cosign/SARIF/GHCR steps fail with a permissions error, not a build
-# error — worth knowing before debugging the wrong layer.
+# Documentation/least-privilege — the calling job must grant at least this
+# much, or these steps fail on permissions, not on the build itself.
 permissions:
   contents: read
   packages: write
@@ -29,15 +27,10 @@ permissions:
   security-events: write
 
 env:
-  # Pinned by digest, not tag — aquasecurity/trivy-action had 76 of 77 tags
-  # force-pushed to credential-stealing malware in March 2026
-  # (GHSA-69fq-xp46-6x23). Consuming the scanner as a digest-pinned
-  # container sidesteps that entire class of compromise: a tag can be
-  # repointed, a digest cannot.
+  # Pinned by digest, not tag — a tag can be repointed (see GHSA-69fq-xp46-6x23,
+  # 76 of 77 aquasecurity/trivy-action tags force-pushed to malware in 2026-03).
   TRIVY_IMAGE: ghcr.io/aquasecurity/trivy@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
-  # linux/amd64 only — the k3d target is x86_64, and QEMU-emulated arm64
-  # would multiply a build that already produces a 1.85 GB image (see
-  # devops-docs/explainers/phase-0-app-readiness.md).
+  # k3d target is x86_64; QEMU-emulated arm64 would multiply an already 1.85 GB build.
   PLATFORMS: linux/amd64
   LOCAL_TAG: helpdesk:ci
 
@@ -54,12 +47,8 @@ jobs:
 
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
-      # GHCR requires a lowercase path but the repo owner
-      # (RumeshChathuranga) is mixed case — docker/metadata-action
-      # lowercases internally for its own tags, but Cosign needs the same
-      # lowercase ref handed to it explicitly, so it's computed once here
-      # and reused everywhere below instead of two things silently
-      # disagreeing on case.
+      # GHCR needs a lowercase path but the owner (RumeshChathuranga) isn't —
+      # computed once so Cosign and metadata-action can't disagree on case.
       - name: Compute lowercase image name
         id: image
         run: echo "name=$(echo 'ghcr.io/${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
@@ -92,9 +81,8 @@ jobs:
           key: trivy-db-${{ github.run_id }}
           restore-keys: trivy-db-
 
-      # Informational: the full report, uploaded to the Security tab
-      # regardless of severity, mirroring the audit job's "report everything,
-      # gate on critical" pattern already used for `bun audit`.
+      # Full report to the Security tab regardless of severity — same
+      # report-everything/gate-on-critical pattern as the bun audit job.
       - name: Trivy scan (full report → SARIF)
         run: |
           mkdir -p ~/.cache/trivy
@@ -111,9 +99,7 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
-      # The gate. Fails the job on any CRITICAL advisory with a known fix —
-      # mirrors the `bun audit --audit-level=critical` policy already in
-      # ci.yml so the same severity bar applies to code and to the image.
+      # The gate — same critical-only bar as `bun audit` in ci.yml.
       - name: Trivy scan (gate on CRITICAL)
         run: |
           docker run --rm \
@@ -131,9 +117,7 @@ jobs:
           output-file: helpdesk.spdx.json
           upload-artifact: true
 
-      # Only past this point does anything touch the network as a publish —
-      # everything above ran against a local, unpushed image. Login has to
-      # happen before the push build, not after.
+      # Everything above ran against a local, unpushed image.
       - name: Log in to GHCR
         if: inputs.push
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -152,12 +136,8 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           push: true
-          # Buildx auto-attaches an unsigned provenance attestation by
-          # default on push. Disabled deliberately — Cosign below is the
-          # one signature this pipeline makes a claim about; a second,
-          # unsigned one attached silently would be confusing, not
-          # additive. Real SLSA provenance is a deferred, separate piece of
-          # work (see the Phase 1 explainer's "still unsolved" section).
+          # Buildx auto-attaches unsigned provenance by default — disabled so
+          # Cosign below stays the one signature this pipeline vouches for.
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -166,11 +146,8 @@ jobs:
         if: inputs.push
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
-      # Keyless: Fulcio issues a short-lived cert bound to this workflow's
-      # OIDC identity, the signature is logged to Sigstore's public Rekor
-      # transparency log, and no private key ever exists to lose or rotate.
-      # That log entry is why this only runs once the repo is public — see
-      # devops-docs/setup/going-public.md.
+      # Keyless via Fulcio + Rekor — see devops-docs/setup/going-public.md for
+      # why this only runs once the repo is public.
       - name: Sign image (keyless)
         if: inputs.push
         run: cosign sign --yes "${{ steps.image.outputs.name }}@${{ steps.push.outputs.digest }}"

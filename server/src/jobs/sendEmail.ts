@@ -23,10 +23,7 @@ const STALE_SENDING_MS = 5 * 60 * 1000;
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
-/**
- * Registers the send-email worker with pg-boss.
- * Must be called once after boss.start() during server startup.
- */
+/** Call once after boss.start() during startup. */
 export async function registerSendEmailWorker(): Promise<void> {
   await boss.createQueue(SEND_EMAIL_QUEUE);
 
@@ -43,26 +40,18 @@ export async function registerSendEmailWorker(): Promise<void> {
 }
 
 /**
- * Sends the email for a single reply. Exported (in addition to being used by
- * the pg-boss worker above) so unit tests can drive it directly with a stub
- * email driver, without going through pg-boss.
- *
- * Idempotency has three layers: the caller enqueues with singletonKey so at
- * most one job is ever queued per reply; the atomic claim below (step 1)
- * ensures at most one worker is ever actively sending it; and the outbound
- * Message-ID is deterministic per reply, so even a genuine duplicate delivery
- * (e.g. the SMTP response is lost after Gmail accepted the mail, and a retry
- * fires) collapses in the recipient's mail client instead of forking the
- * thread. Do not "fix" the deterministic id into a random one.
+ * Sends the email for one reply. Exported separately from the worker so tests
+ * can drive it without pg-boss. Three idempotency layers: singletonKey at
+ * enqueue, the atomic claim below, and a deterministic per-reply Message-ID so
+ * a duplicate delivery collapses in the recipient's client — never randomise it.
  */
 export async function runSendEmail(replyId: string): Promise<void> {
   const messageId = buildOutboundMessageId(replyId);
   const staleCutoff = new Date(Date.now() - STALE_SENDING_MS);
 
   // ── 1. Atomic claim — the double-send guard ──────────────────────────────
-  // Only a row currently QUEUED/FAILED — or stuck in SENDING past the stale
-  // cutoff because a worker died mid-send — can be claimed. A pg-boss retry
-  // firing while another worker holds the row claims nothing and returns.
+  // Only QUEUED/FAILED, or SENDING past the stale cutoff (dead worker), can be
+  // claimed. A retry firing while another worker holds the row claims nothing.
   const { count } = await prisma.reply.updateMany({
     where: {
       id: replyId,
@@ -215,10 +204,7 @@ export async function runSendEmail(replyId: string): Promise<void> {
 
 // ─── Enqueue helper ───────────────────────────────────────────────────────────
 
-/**
- * Enqueues a send-email job for the given reply. `singletonKey` ensures at
- * most one queued job exists per reply at a time.
- */
+/** `singletonKey` keeps at most one queued job per reply. */
 export async function enqueueSendEmail(data: SendEmailJobData): Promise<string | null> {
   return boss.send(SEND_EMAIL_QUEUE, data, {
     singletonKey: data.replyId,

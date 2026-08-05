@@ -1,10 +1,7 @@
 /**
  * Imports every article in server/knowledge-base/ as a KnowledgeDocument,
- * upserting by title (matched against existing documents) so re-running
- * after an edit updates the article in place instead of duplicating it.
- * Each file's first "# " heading becomes the document title; the rest of
- * the file (including that heading) becomes its text, mirroring what an
- * admin would paste through POST /api/knowledge.
+ * upserted by title so re-running after an edit updates in place. Each file's
+ * first "# " heading becomes the title; the rest becomes the text.
  *
  *   bun run --filter server kb:import
  */

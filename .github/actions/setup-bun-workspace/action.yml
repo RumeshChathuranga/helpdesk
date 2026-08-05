@@ -43,10 +43,8 @@ runs:
       shell: bash
       run: bun install --frozen-lockfile
       env:
-        # server/package.json's postinstall is `bunx prisma generate`, which
-        # loads prisma.config.ts and throws PrismaConfigEnvError when
-        # DATABASE_URL is missing. Locally this is invisible because Bun
-        # auto-loads server/.env; a CI runner has no such file.
+        # postinstall runs prisma generate, which throws without DATABASE_URL —
+        # invisible locally since Bun auto-loads server/.env, absent in CI.
         DATABASE_URL: ${{ inputs.database-url }}
 
     - name: Generate Prisma client

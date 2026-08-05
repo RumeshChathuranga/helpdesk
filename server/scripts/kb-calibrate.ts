@@ -1,12 +1,7 @@
 /**
- * Read-only calibration check: embeds a sample of representative ticket
- * texts and reports the best cosine similarity each one gets against the
- * live KnowledgeChunk table, alongside the current RAG_SIMILARITY_THRESHOLD
- * safety gate (server/src/config.ts). Run after importing/re-embedding the
- * knowledge base to see whether the corpus actually clears the gate for
- * realistic tickets, instead of guessing.
- *
- * This does not change the threshold or write anything — see
+ * Read-only: embeds sample ticket texts and reports each one's best cosine
+ * similarity against KnowledgeChunk, against RAG_SIMILARITY_THRESHOLD. Run
+ * after import/re-embed to see if the corpus actually clears the gate. See
  * docs/knowledge-base.md for what to do with the result.
  *
  *   bun run --filter server kb:calibrate

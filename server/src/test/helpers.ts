@@ -2,13 +2,8 @@ import type { Express } from "express";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-/**
- * Shared integration-test bootstrap helpers.
- *
- * These intentionally THROW (rather than catch-and-set-a-flag) on failure so
- * that a down DB, missing seed data, or broken login fails every test in the
- * suite loudly instead of turning them into silent no-op passes.
- */
+// These intentionally throw on failure — a down DB or broken login should
+// fail loudly, not turn into silent no-op passes.
 
 export interface TestServer {
   server: Server;

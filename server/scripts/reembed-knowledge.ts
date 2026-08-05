@@ -1,10 +1,7 @@
 /**
- * Re-chunks and re-embeds every knowledge document.
- *
- * Use after migrating documents that predate chunking (they land as a single
- * truncated chunk), or after changing KB_CHUNK_MAX_TOKENS / KB_CHUNK_OVERLAP_TOKENS.
- * The embed-document job replaces a document's chunks in one transaction, so
- * this is safe to run against a live database.
+ * Re-chunks and re-embeds every knowledge document. Use after migrating
+ * pre-chunking documents or changing the chunk-size config. Safe against a
+ * live database — embed-document replaces a document's chunks in one transaction.
  *
  *   bun run --filter server kb:reembed
  */

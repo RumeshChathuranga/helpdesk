@@ -413,10 +413,7 @@ describe("POST /api/tickets", () => {
   const createdTicketIds: string[] = [];
 
   beforeAll(async () => {
-    // enqueueProcessTicket() sends through the shared pg-boss singleton, which
-    // needs an open connection pool. Other test files in this same `bun test`
-    // process may have started (or fully stopped) that singleton already —
-    // starting it here is idempotent and reopens it if it was closed.
+    // Idempotent — reopens the shared pg-boss singleton if another test file closed it.
     await startBoss();
     await boss.createQueue("process-ticket");
 
@@ -736,12 +733,8 @@ describe("DELETE /api/tickets/:id", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/tickets/:id/polish-reply
-// ---------------------------------------------------------------------------
-// The AI SDK is mocked (see ../test/mockAi.ts) so no real network calls are
-// made to GitHub Models. The rest of the test follows the same integration
-// pattern used above (real Express server, real DB, auth cookie).
+// ─── POST /api/tickets/:id/polish-reply ──────────────────────────────────────
+// AI SDK mocked, see ../test/mockAi.ts.
 
 import { aiMockState, resetAiMockState } from "../test/mockAi.js";
 
@@ -916,9 +909,8 @@ describe("GET /api/tickets/stats", () => {
   });
 
   it("returns dashboard statistics whose deltas match the fixtures this test creates", async () => {
-    // Capture the baseline first so the assertions below don't assume
-    // anything about pre-existing tickets in the shared test DB — only that
-    // the counts move by exactly the amount these fixtures contribute.
+    // Baseline first — assertions below check deltas, not absolute counts,
+    // since the test DB is shared.
     const before = await getStats();
 
     const ticket1 = await prisma.ticket.create({
@@ -943,8 +935,6 @@ describe("GET /api/tickets/stats", () => {
 
     const after = await getStats();
 
-    // Shape / type assertions — these should always hold regardless of
-    // what's already in the shared DB.
     expect(typeof after.totalTickets).toBe("number");
     expect(typeof after.openTickets).toBe("number");
     expect(typeof after.resolvedTickets).toBe("number");
@@ -953,9 +943,6 @@ describe("GET /api/tickets/stats", () => {
     expect(after.aiResolvedPct).toBeLessThanOrEqual(100);
     expect(after.chartData).toHaveLength(30);
 
-    // Delta assertions — NEW/PROCESSING tickets must not move totalTickets or
-    // openTickets, exactly one OPEN and one RESOLVED ticket were added, and
-    // exactly one AI-resolved ticket was added.
     expect(after.totalTickets - before.totalTickets).toBe(2);
     expect(after.openTickets - before.openTickets).toBe(1);
     expect(after.resolvedTickets - before.resolvedTickets).toBe(1);
@@ -963,11 +950,8 @@ describe("GET /api/tickets/stats", () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// POST /api/tickets/:id/replies (+ sendEmail) and the approve/discard/retry
-// moderation endpoints. A stub email driver replaces the real smtp/log
-// driver so no send-email job is left dangling against a mail provider.
-// ---------------------------------------------------------------------------
+// ─── POST /api/tickets/:id/replies + approve/discard/retry moderation ────────
+// A stub email driver stands in for smtp/log, so no send-email job dangles.
 
 describe("POST /api/tickets/:id/replies", () => {
   let server: Server;

@@ -14,11 +14,8 @@ const ADMINISTRATIVE_MAILBOXES = new Set([
 const TECHNICAL_MAILBOX_RE = /^(?:cites|lab.*|netadmin|webedit)$/i;
 
 /**
- * Infers a requester's role from their inbound email address. Deliberately
- * conservative — returns null rather than guess whenever the address doesn't
- * clearly match a known university pattern, since a wrong badge is worse
- * than an empty one (Gmail senders, forwards and shared mailboxes all defeat
- * inference).
+ * Infers a requester's role from their email address. Conservative by design —
+ * returns null rather than guess, since a wrong badge is worse than none.
  */
 export function inferRequesterType(
   fromEmail: string | null | undefined,

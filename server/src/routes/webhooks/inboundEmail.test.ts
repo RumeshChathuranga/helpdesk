@@ -49,10 +49,8 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  // Guard both steps individually: if beforeAll threw partway through (e.g.
-  // startBoss() failed), `server`/`bossStarted` may never have been set, and
-  // we don't want teardown to throw a second, unrelated error on top of the
-  // real setup failure.
+  // Guarded individually — a beforeAll that threw partway through may never
+  // have set server/bossStarted.
   server?.close();
   if (bossStarted) {
     await boss.stop();
@@ -200,9 +198,8 @@ describe("POST /api/webhooks/inbound-email", () => {
     });
     expect(firstReplyRes.status).toBe(200);
 
-    // Second customer reply — real mail clients set In-Reply-To to the most
-    // recent message in the thread, i.e. the first reply's message id, not
-    // the original ticket's. This must still land on the original ticket.
+    // Real clients set In-Reply-To to the most recent message (the first
+    // reply), not the original — this must still land on the original ticket.
     const thirdMessageId = `<reply-2-${crypto.randomUUID()}@mail>`;
     const secondReplyRes = await postInboundEmail({
       fromEmail: "student@example.com",

@@ -10,26 +10,16 @@ import { embedText } from "../lib/embeddings.js";
 import { prisma } from "../lib/prisma.js";
 
 /**
- * Hybrid knowledge retrieval for the ticket pipeline.
- *
- * Two independent searches run over KnowledgeChunk and are fused by rank:
- *
- * - **Dense** — pgvector cosine nearest neighbours. Good at paraphrase and
- *   intent ("I can't get in" -> "password reset"), blind to rare literal tokens.
- * - **Lexical** — Postgres full-text search. Good at exactly the tokens dense
- *   retrieval loses: error codes, SKUs, product names, acronyms like "SSO".
- *
- * Results are combined with Reciprocal Rank Fusion, which needs no score
- * normalisation between the two incomparable scales (cosine vs ts_rank_cd).
- * The winning chunks are then expanded to their immediate neighbours so the
- * model reads whole passages rather than clipped fragments.
+ * Hybrid retrieval over KnowledgeChunk: pgvector cosine catches paraphrase,
+ * Postgres full-text catches the literal tokens it misses (error codes, "SSO").
+ * Fused by Reciprocal Rank Fusion, which needs no normalisation between the two
+ * incomparable scales, then expanded to neighbouring chunks.
  */
 
 /** RRF damping constant. 60 is the value from the original Cormack et al. paper. */
 const RRF_K = 60;
 
-/** Lexical-only hits must still be semantically in the neighbourhood, so a
- *  keyword coincidence cannot drag unrelated text into the prompt. */
+/** Floor for lexical-only hits, so a keyword coincidence can't reach the prompt. */
 const KEYWORD_MIN_SIMILARITY = 0.4;
 
 interface CandidateRow {
@@ -54,12 +44,9 @@ export interface RetrievedContext {
 const EMPTY_CONTEXT: RetrievedContext = { contextText: "", chunks: [] };
 
 /**
- * Dense candidates.
- *
- * The inner query's `ORDER BY embedding <=> $vec LIMIT n` is the only form
- * pgvector can serve from the HNSW index — ordering by a `1 - (...)` alias
- * (as this code did before chunking landed) forces a full scan of every chunk.
- * Similarity is computed in the outer query, where it costs nothing.
+ * Dense candidates. The inner `ORDER BY embedding <=> $vec LIMIT n` is the only
+ * form pgvector serves from the HNSW index — ordering by a `1 - (...)` alias
+ * forces a full scan, so similarity is computed in the outer query.
  */
 async function denseCandidates(vectorString: string): Promise<CandidateRow[]> {
   return prisma.$queryRaw<CandidateRow[]>`
@@ -78,12 +65,9 @@ async function denseCandidates(vectorString: string): Promise<CandidateRow[]> {
 }
 
 /**
- * Lexical candidates.
- *
- * `to_tsvector('english', text)` must match the expression index created in
- * migration 20260728120000 verbatim or Postgres falls back to a seq scan.
- * `websearch_to_tsquery` (rather than `to_tsquery`) because the terms come from
- * customer-authored text and it never raises on malformed input.
+ * Lexical candidates. `to_tsvector('english', text)` must match the expression
+ * index in migration 20260728120000 verbatim or Postgres seq-scans.
+ * `websearch_to_tsquery` never raises on the malformed input customers write.
  */
 async function lexicalCandidates(
   vectorString: string,
@@ -122,11 +106,8 @@ function fuse(lists: CandidateRow[][]): RetrievedChunk[] {
   return [...scores.values()].sort((a, b) => b.score - a.score);
 }
 
-/**
- * Pulls each selected chunk's immediate neighbours so the prompt sees a
- * continuous passage. Small chunks make retrieval precise; expansion gives the
- * model back the context those small chunks cut away.
- */
+/** Pulls each chunk's neighbours back in, so the model reads whole passages
+ *  rather than the fragments retrieval matched on. */
 async function expandWithNeighbours(
   selected: RetrievedChunk[],
 ): Promise<Map<string, { title: string; chunks: { chunkIndex: number; text: string }[] }>> {
@@ -184,12 +165,8 @@ function assembleContext(
   return sections.join("\n\n---\n\n");
 }
 
-/**
- * Retrieves knowledge relevant to `query`.
- *
- * Returns an empty context when nothing clears the similarity gate — callers
- * must treat that as "the knowledge base does not cover this" and escalate.
- */
+/** Empty context means nothing cleared the similarity gate — callers must treat
+ *  that as "the KB doesn't cover this" and escalate. */
 export async function retrieveKnowledge(query: string): Promise<RetrievedContext> {
   const { vectorString } = await embedText(query);
 
@@ -198,8 +175,7 @@ export async function retrieveKnowledge(query: string): Promise<RetrievedContext
 
   const fused = fuse(lexical.length > 0 ? [dense, lexical] : [dense]);
 
-  // Safety gate: the AI may only attempt a resolution when at least one chunk is
-  // a strong semantic match. Below the threshold the ticket belongs to a human.
+  // Safety gate: without one strong semantic match the ticket belongs to a human.
   const hasStrongMatch = fused.some(
     (chunk) => chunk.similarity >= RAG_SIMILARITY_THRESHOLD,
   );

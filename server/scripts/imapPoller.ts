@@ -1,12 +1,9 @@
 /// <reference types="bun-types" />
 
-// Dev-only tool: polls a real mailbox (e.g. a Gmail inbox) over IMAP and
-// forwards each unseen message to this app's own inbound-email webhook, so
-// you can test the full reply loop against a real email address without a
-// production inbound-email provider configured. See docs/email-setup.md.
+// Dev-only: polls a real mailbox over IMAP and forwards unseen mail to this
+// app's inbound-email webhook. See docs/email-setup.md.
 //
 // Usage: bun run --filter server email:poll   (from the repo root)
-//    or: bun scripts/imapPoller.ts             (from server/)
 
 import "dotenv/config";
 import { pollOnce } from "../src/lib/email/imapPoller.js";

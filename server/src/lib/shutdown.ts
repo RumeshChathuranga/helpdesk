@@ -9,10 +9,8 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * The drain sequence itself, with no `process.exit` — kept separate from
- * `installShutdownHandlers` so it can be exercised directly in tests. Order
- * matters: flip readiness -> wait out the drain window -> stop accepting new
- * connections -> let in-flight jobs finish -> disconnect.
+ * Drain sequence without `process.exit`, so tests can drive it. Order matters:
+ * readiness → drain window → stop accepting → finish jobs → disconnect.
  */
 export async function drainAndShutdown(server: Server): Promise<void> {
   setShuttingDown(true);

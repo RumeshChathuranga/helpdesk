@@ -9,11 +9,10 @@ import { ALLOW_REMOTE_MODELS, MODEL_CACHE_DIR } from "../config.js";
 
 const MODEL_NAME = "Xenova/all-MiniLM-L6-v2";
 
-// Must run before the first pipeline()/AutoTokenizer.from_pretrained() call.
-// Unset MODEL_CACHE_DIR keeps the library default (inside node_modules), which
-// is what local dev wants; the release image bakes weights into MODEL_CACHE_DIR
-// and sets ALLOW_REMOTE_MODELS=false so a missing bake fails loudly instead of
-// silently downloading 87 MB from the HF Hub on the first ticket after deploy.
+// Must run before the first pipeline()/from_pretrained() call. Unset cache dir
+// keeps the library default, which is what dev wants; the release image bakes
+// weights in and sets ALLOW_REMOTE_MODELS=false so a missing bake fails loudly
+// rather than silently pulling 87 MB from the HF Hub after every deploy.
 if (MODEL_CACHE_DIR) transformersEnv.cacheDir = MODEL_CACHE_DIR;
 transformersEnv.allowRemoteModels = ALLOW_REMOTE_MODELS;
 
@@ -36,12 +35,8 @@ export interface EmbedTextResult {
   vectorString: string;
 }
 
-/**
- * Returns a token counter backed by the embedding model's own tokenizer, so
- * chunk sizing measures the same units the model truncates on. The tokenizer
- * loads from the same cached model repo as the pipeline; the promise is cached
- * process-wide the same way.
- */
+/** Token counter backed by the model's own tokenizer, so chunk sizing measures
+ *  the units the model actually truncates on. Cached process-wide. */
 export async function getTokenCounter(): Promise<(text: string) => number> {
   if (!tokenizerPromise) {
     tokenizerPromise = AutoTokenizer.from_pretrained(MODEL_NAME);
@@ -84,9 +79,8 @@ export async function embedText(text: string): Promise<EmbedTextResult> {
   return result;
 }
 
-/** Forces the tokenizer and pipeline to load, writing weights to
- *  MODEL_CACHE_DIR. Run at image build time so the release image ships with
- *  the model baked in and no request pays the download cost. */
+/** Loads tokenizer + pipeline into MODEL_CACHE_DIR. Run at image build time so
+ *  no request pays the download. */
 export async function warmEmbeddingModel(): Promise<void> {
   await getTokenCounter();
   await embedText("warmup");

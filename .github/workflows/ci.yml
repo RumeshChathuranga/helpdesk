@@ -107,9 +107,7 @@ jobs:
           prisma-generate: "true"
           database-url: ${{ env.DATABASE_URL }}
 
-      # server/.env.test is gitignored; the committed example holds the same
-      # values (DB on 5433, seed credentials, 32-char webhook secret) and is
-      # what src/test/setup.ts loads with `override: true`.
+      # server/.env.test is gitignored; this copies the committed example.
       - name: Create server/.env.test
         run: cp server/.env.test.example server/.env.test
 
@@ -134,16 +132,13 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      # Informational: the full advisory list, including transitive ones we
-      # currently have no fixed version for. Never fails the build.
+      # Informational only — never fails the build.
       - name: bun audit (full report)
         continue-on-error: true
         run: bun audit
 
-      # The gate. Today the tree has high/moderate advisories that only
-      # upstream can fix (prisma, @huggingface/transformers, vite/postcss), so
-      # blocking at `high` would keep CI permanently red. Tighten this to
-      # `--audit-level=high` once those transitive deps have patched releases.
+      # Gated at critical, not high — high/moderate advisories here are
+      # transitive and upstream-only-fixable (prisma, transformers, vite/postcss).
       - name: Fail on critical advisories
         run: bun audit --audit-level=critical
 

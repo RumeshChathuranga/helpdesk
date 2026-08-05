@@ -1,5 +1,4 @@
-// Used as the Docker HEALTHCHECK CMD. Runs under Bun so it has no dependency
-// on what the base image happens to ship
+// Docker HEALTHCHECK CMD. Runs under Bun, no dependency on the base image.
 const port = Number(process.env.PORT) || 3000;
 
 try {

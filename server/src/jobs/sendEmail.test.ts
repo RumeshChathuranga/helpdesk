@@ -158,9 +158,8 @@ describe("runSendEmail", () => {
   });
 
   it("never calls the driver for a reply still awaiting approval", async () => {
-    // deliveryState QUEUED here is not a state the route/worker ever produces
-    // for a PENDING_APPROVAL reply — this exercises the guard in step 2 as a
-    // defense-in-depth check, independent of the step-1 claim filter.
+    // QUEUED here never actually happens for a PENDING_APPROVAL reply — this
+    // exercises the step-2 guard as defense-in-depth.
     const { driver, calls } = createStubDriver();
     setEmailDriverForTesting(driver);
 

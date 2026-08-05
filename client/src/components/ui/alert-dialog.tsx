@@ -3,10 +3,8 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-/**
- * Wraps a Radix primitive with forwarded ref + `className` merge.
- * Typed at each call site via `as typeof Primitive` (generic `ElementType` + `ElementRef` is overly strict in TS).
- */
+// Wraps a Radix primitive with forwarded ref + className merge, typed per
+// call site via `as typeof Primitive`.
 function primitiveWithCn(
   Comp: React.ElementType & { displayName?: string },
   merge:

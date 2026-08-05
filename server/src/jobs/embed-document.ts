@@ -19,14 +19,9 @@ const MAX_ERROR_LENGTH = 500;
 // ─── Runner ───────────────────────────────────────────────────────────────────
 
 /**
- * Chunks a knowledge document, embeds every chunk, and replaces the document's
- * chunk rows with the result.
- *
- * Delete-then-insert inside one transaction makes this idempotent: a pg-boss
- * retry (or a re-queue after the chunking parameters change) converges on the
- * same rows instead of duplicating them.
- *
- * Exported separately from the worker so tests can drive it without pg-boss.
+ * Chunks a document, embeds every chunk, and replaces its chunk rows.
+ * Delete-then-insert in one transaction makes a retry converge on the same
+ * rows instead of duplicating. Exported separately so tests skip pg-boss.
  */
 export async function runEmbedDocument(documentId: string): Promise<void> {
   const document = await prisma.knowledgeDocument.findUnique({
@@ -45,8 +40,7 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
   });
 
   try {
-    // Measure chunks with the embedding model's own tokenizer so sizing matches
-    // the window the model actually truncates at.
+    // Measure with the model's own tokenizer, matching the window it truncates at.
     const countTokens = await getTokenCounter();
     const chunks = chunkText(document.text, { countTokens });
 
@@ -62,12 +56,9 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
       return;
     }
 
-    // Embedding weights download on first run and are cached locally; the
-    // pipeline instance itself is cached process-wide in lib/embeddings.ts.
     const embeddings = await embedTexts(chunks);
 
-    // Raw insert — `embedding` is Unsupported("vector(384)"), so the typed
-    // client cannot create these rows.
+    // Raw insert — `embedding` is Unsupported("vector(384)"), unreachable via the typed client.
     const values = chunks.map((text, index) =>
       Prisma.sql`(gen_random_uuid()::text, ${documentId}, ${index}, ${text}, ${embeddings[index]!.vectorString}::vector)`,
     );
@@ -100,16 +91,13 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
         error: message.slice(0, MAX_ERROR_LENGTH),
       },
     });
-    throw err; // Allow pg-boss to handle retries
+    throw err; // let pg-boss retry
   }
 }
 
 // ─── Worker ───────────────────────────────────────────────────────────────────
 
-/**
- * Registers the embed-document worker with pg-boss.
- * Must be called once after boss.start() during server startup.
- */
+/** Call once after boss.start() during startup. */
 export async function registerEmbedDocumentWorker(): Promise<void> {
   await boss.createQueue(EMBED_DOCUMENT_QUEUE);
 
@@ -134,11 +122,7 @@ export async function registerEmbedDocumentWorker(): Promise<void> {
 
 // ─── Enqueue helper ───────────────────────────────────────────────────────────
 
-/**
- * Enqueues an embed-document job. Returns the job ID.
- * `singletonKey` keeps two jobs for the same document from running concurrently
- * and racing each other's delete-then-insert.
- */
+/** `singletonKey` stops two jobs for the same document racing each other's delete-then-insert. */
 export async function enqueueEmbedDocument(
   data: EmbedDocumentJobData,
 ): Promise<string | null> {

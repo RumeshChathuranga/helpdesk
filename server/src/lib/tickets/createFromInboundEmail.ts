@@ -27,9 +27,8 @@ export function parseInboundEmail(
   return { success: true, data: parsed.data };
 }
 
-/** Finds the ticket a message-id belongs to, checking both the ticket's own
- *  id and every reply's id, since after the first reply the "most recent
- *  message in the thread" a mail client points at is a Reply row. */
+/** Checks both the ticket's own id and every reply's id — after the first
+ *  reply, a mail client's "most recent message" is a Reply row, not the ticket. */
 async function findThreadTicketId(externalMessageId: string): Promise<string | undefined> {
   const existingTicket = await prisma.ticket.findUnique({
     where: { externalMessageId },
@@ -49,17 +48,13 @@ export async function createFromInboundEmail(
 ): Promise<InboundEmailResult> {
   const { fromEmail, fromName, subject, body, messageId, inReplyTo, references } = input;
 
-  // Idempotency: a provider retry (webhook) or a re-poll of the same mailbox
-  // (IMAP poller) must not fork a duplicate reply/ticket for a message we've
-  // already ingested. Without a messageId there is no key to dedupe on.
+  // Dedupe a webhook retry or IMAP re-poll against a message we've already ingested.
   const alreadyIngested = messageId ? await findThreadTicketId(messageId) : undefined;
   if (alreadyIngested) {
     return { ticketId: alreadyIngested, created: "reply" };
   }
 
-  // In-Reply-To is the primary signal; References (oldest → newest) is a
-  // fallback for clients/relays that drop or mangle In-Reply-To but keep the
-  // full chain — walk it newest-first so we land on the closest ancestor.
+  // In-Reply-To first; References is a fallback, walked newest-first.
   const candidateIds = [
     ...(inReplyTo ? [inReplyTo] : []),
     ...(references ? [...references].reverse() : []),
@@ -103,9 +98,7 @@ export async function createFromInboundEmail(
     select: { id: true },
   });
 
-  // Enqueue a persistent pg-boss job — classifies category + attempts KB auto-resolution.
-  // If enqueueing itself fails, the ticket must not stay invisible in NEW —
-  // fall back to OPEN so an agent can still pick it up manually.
+  // If enqueueing fails, the ticket must not stay invisible in NEW.
   try {
     await enqueueProcessTicket({ ticketId: ticket.id, subject, body });
   } catch (err) {

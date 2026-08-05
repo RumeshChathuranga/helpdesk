@@ -1,18 +1,11 @@
 import { KB_CHUNK_MAX_TOKENS, KB_CHUNK_OVERLAP_TOKENS } from "../config.js";
 
 /**
- * Structure-aware text splitter for the knowledge base.
- *
- * The embedding model has a hard 256-token window: text beyond it is dropped at
- * embed time, so a long article stored as one row is mostly unretrievable. This
- * splits source text into overlapping passages that each fit the window.
- *
- * Splitting walks from the largest natural boundary down to the smallest, so a
- * chunk breaks between paragraphs where it can and only falls back to sentence,
- * word and finally character boundaries when a single unit is itself too big.
- *
- * Pure and synchronous — the token counter is injected so callers can pass the
- * real tokenizer (see `getTokenCounter`) while tests use a deterministic stub.
+ * Structure-aware splitter for the knowledge base. The embedding model has a
+ * hard 256-token window, so a long article stored as one row is mostly
+ * unretrievable. Breaks on the coarsest boundary that fits — paragraph, then
+ * sentence, word, character. The token counter is injected so tests can pass a
+ * deterministic stub.
  */
 
 export interface ChunkTextOptions {
@@ -87,10 +80,8 @@ function splitToUnits(
         continue;
       }
 
-      // Sentence too large — drop to word units. Emitting individual words
-      // (rather than pre-packed slices) keeps the packing loop below in charge
-      // of both chunk size and overlap, so overlap still works mid-sentence,
-      // which is exactly where a boundary is most arbitrary.
+      // Sentence too large — emit single words so the packing loop below stays
+      // in charge of size and overlap.
       let isFirstUnit = true;
       const pushUnit = (text: string) => {
         units.push({

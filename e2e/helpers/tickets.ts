@@ -52,14 +52,9 @@ const AGENT_VISIBLE_STATUSES = new Set([
   "CLOSED",
 ]);
 
-/**
- * New tickets start as NEW/PROCESSING (hidden from the agent list) until the
- * process-ticket worker finishes. Poll detail until the ticket is visible.
- *
- * Pass `baseUrl` when using a bare APIRequestContext against the E2E API
- * (e.g. `API_BASE_URL`). Leave it empty when using `page.request`, which goes
- * through the Vite `/api` proxy with the browser session cookie.
- */
+/** Polls until the worker finishes and the ticket leaves NEW/PROCESSING. Pass
+ *  `baseUrl` for a bare APIRequestContext; leave empty for `page.request`,
+ *  which goes through the Vite proxy with the session cookie. */
 export async function waitForTicketAgentVisible(
   request: APIRequestContext,
   ticketId: string,

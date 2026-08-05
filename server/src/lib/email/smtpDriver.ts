@@ -21,10 +21,9 @@ function isPermanentError(err: NodemailerErrorLike): boolean {
 }
 
 /**
- * Gmail SMTP transport via an App Password. EMAIL_FROM must equal SMTP_USER
- * (or a verified "Send mail as" alias) or Gmail silently rewrites the From
- * header. The account needs 2-Step Verification enabled plus an App
- * Password — regular account passwords are rejected.
+ * Gmail SMTP via an App Password. EMAIL_FROM must equal SMTP_USER (or a
+ * verified alias) or Gmail silently rewrites the From header. Needs 2-Step
+ * Verification; regular account passwords are rejected.
  */
 export function createSmtpDriver(): EmailDriver {
   if (!SMTP_USER || !SMTP_PASSWORD) {

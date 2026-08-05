@@ -2,10 +2,8 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { prisma } from "./prisma.js";
 
-/**
- * Better Auth instance used only for programmatic email/password sign-up
- * (same DB as app auth). Public routes use {@link ./auth.js} with disableSignUp.
- */
+/** Sign-up-only Better Auth instance, same DB. Public routes use ./auth.js,
+ *  which has sign-up disabled. */
 const internalAuth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   emailAndPassword: { enabled: true },

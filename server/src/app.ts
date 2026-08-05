@@ -12,13 +12,8 @@ import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
 
-/**
- * Derives the Sentry ingest origin for the CSP connect-src directive. Client
- * and server DSNs are read from separate env files (VITE_SENTRY_DSN isn't
- * visible to the server process), but both normally belong to the same
- * Sentry org and therefore share a host — so the server's own SENTRY_DSN is
- * used unless SENTRY_INGEST_ORIGIN explicitly overrides it.
- */
+/** Client/server DSNs live in separate env files, but share a Sentry org host,
+ *  so SENTRY_DSN doubles as the CSP origin unless overridden. */
 function getSentryIngestOrigin(): string | undefined {
   const dsn = process.env.SENTRY_INGEST_ORIGIN || process.env.SENTRY_DSN;
   if (!dsn) return undefined;
@@ -99,10 +94,8 @@ export function createApp(): Express {
   return app;
 }
 
-/** Minimal app for the worker role: helmet + health routes only, no ticket
- *  API surface. Gives Kubernetes/Docker a real liveness/readiness endpoint
- *  for the worker container without exposing routes it has no business
- *  serving. */
+/** Helmet + health routes only — a real liveness/readiness endpoint for the
+ *  worker container without its ticket API surface. */
 export function createHealthApp(): Express {
   const app = express();
 

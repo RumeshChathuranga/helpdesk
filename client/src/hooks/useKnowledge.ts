@@ -50,8 +50,7 @@ export function useKnowledge() {
     queryKey: knowledgeKeys.list(listParams),
     queryFn: () => fetchKnowledgeDocuments(listParams),
     placeholderData: keepPreviousData,
-    // Chunking and embedding happen in a background job, so poll while anything
-    // on this page is still in flight — and only then.
+    // Chunking/embedding happen in a background job — poll only while something's in flight.
     refetchInterval: (query) =>
       query.state.data?.documents.some(
         (doc) => doc.status === "PENDING" || doc.status === "PROCESSING",

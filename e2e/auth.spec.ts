@@ -55,10 +55,8 @@ test.describe("Successful login", () => {
     await expect(page.getByRole("link", { name: "Users" })).not.toBeVisible();
   });
 
-  // Visiting a protected route first bounces to /login via an SPA-internal
-  // redirect (not a full page reload), leaving the client-side session store
-  // already primed from that check. Logging in from that same page instance
-  // must not require a second submit to reach the dashboard.
+  // The redirect-to-login primes the session store, so logging in on that
+  // same page instance shouldn't need a second submit.
   test("logging in works on the first submit after being redirected from a protected route", async ({
     page,
   }) => {

@@ -1,8 +1,6 @@
 version: 2
 updates:
-  # Actions are pinned to full commit SHAs in build-image.yml on purpose
-  # (see the comment there re: the March 2026 aquasecurity/trivy-action
-  # compromise) — a SHA pin only stays safe if something keeps bumping it.
+  # build-image.yml pins actions to full SHAs — only safe if something bumps them.
   - package-ecosystem: github-actions
     directory: /
     schedule:

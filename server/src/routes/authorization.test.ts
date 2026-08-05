@@ -3,12 +3,8 @@ import type { Server } from "node:http";
 import { createApp } from "../app.js";
 import { loginAsAgent, startTestServer } from "../test/helpers.js";
 
-/**
- * Authorization matrix: an AGENT session must never reach admin-only
- * functionality. requireAdmin runs before body/param validation on every one
- * of these routes, so a 403 here should never depend on request payload
- * shape — a bogus id/body is enough to prove the check happens first.
- */
+// requireAdmin runs before body/param validation on every route here, so a
+// bogus id/body is enough to prove the 403 fires first.
 describe("Authorization matrix — AGENT vs admin-only routes", () => {
   let server: Server;
   let baseUrl: string;

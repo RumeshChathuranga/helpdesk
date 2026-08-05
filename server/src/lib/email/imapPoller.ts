@@ -41,12 +41,8 @@ function normalizeReferences(
   return list.length > 0 ? list : undefined;
 }
 
-/**
- * Converts a raw IMAP message into the same shape the inbound-email webhook
- * accepts, truncating body/subject defensively — a message this poller
- * can't reasonably build a valid payload from (no From address, empty body)
- * is skipped rather than sent to the webhook to fail validation there.
- */
+/** Converts a raw IMAP message into the inbound-webhook shape. Returns null for
+ *  anything unusable (no From, empty body) rather than failing validation there. */
 export async function parseImapMessage(
   source: Buffer,
 ): Promise<InboundEmail | undefined> {
@@ -96,11 +92,9 @@ async function postToWebhook(
 }
 
 /**
- * Runs a single poll cycle: connects, fetches up to `maxPerPoll` unseen
- * messages, POSTs each to the inbound webhook, and flags/moves the ones that
- * were accepted. A message the webhook rejects (or that fails to parse) is
- * left unseen so the next poll retries it — repeated failures are visible in
- * the console rather than silently dropping mail.
+ * One poll cycle: fetch unseen mail, POST each to the inbound webhook, flag or
+ * move the accepted ones. Rejected messages stay unseen so the next poll
+ * retries them instead of dropping mail silently.
  */
 export async function pollOnce(config: ImapPollerConfig): Promise<PollResult> {
   const client = new ImapFlow({

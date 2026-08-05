@@ -38,9 +38,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # Runs once, migrates the schema, and exits. Deliberately not part of the
-  # api/worker start command — two replicas booting simultaneously would both
-  # try to migrate against the same database at once.
+  # Runs once and exits — kept out of api/worker's start command so two
+  # replicas booting together can't race the migration.
   migrate:
     build: .
     command: ["bun", "run", "db:migrate:deploy"]

@@ -1,9 +1,6 @@
 import type { EmailDriver, EmailMessage, SendResult } from "./types.js";
 
-/**
- * Dev/test/CI default driver: never opens a socket, just prints the composed
- * message so the send path is fully exercisable without a mail provider.
- */
+/** Dev/test/CI default — never opens a socket, just prints the composed message. */
 export function createLogDriver(): EmailDriver {
   return {
     name: "log",
