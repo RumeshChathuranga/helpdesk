@@ -1,0 +1,58 @@
+# k3d overrides. Applied on top of deploy/charts/helpdesk/values.yaml:
+#   helm upgrade --install helpdesk deploy/charts/helpdesk \
+#     -n helpdesk -f deploy/envs/dev/values.yaml
+#
+# Phase 3 adds envs/prod alongside this and points Argo CD at both.
+image:
+  # Pin the sha-<longsha> tag that build-image.yml publishes, or the tag pushed
+  # into the cluster-local registry. "latest" is here so a fresh clone works.
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env:
+  NODE_ENV: production
+  BETTER_AUTH_URL: http://helpdesk.localtest.me
+  CLIENT_URL: http://helpdesk.localtest.me
+  # Never SMTP on a laptop — the log driver keeps a stray reply out of a real
+  # customer's inbox.
+  EMAIL_DRIVER: log
+  EMAIL_FROM: support@example.com
+  EMAIL_FROM_NAME: Helpdesk
+  AI_AGENT_EMAIL: ai@cites.uom.lk
+  SUPPORT_EMAIL: cites@uom.lk
+  BRAND_NAME: University of Moratuwa — CITeS IT Help Desk
+  SHUTDOWN_DRAIN_MS: "5000"
+  SHUTDOWN_JOB_TIMEOUT_MS: "25000"
+  SHUTDOWN_TIMEOUT_MS: "30000"
+
+# Two replicas across the two agent nodes — the minimum that makes the PDB and
+# the maxUnavailable:0 rolling update observable.
+api:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 384Mi
+    limits:
+      cpu: 500m
+      memory: 768Mi
+
+worker:
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 768Mi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+
+ingress:
+  enabled: true
+  className: traefik
+  host: helpdesk.localtest.me
