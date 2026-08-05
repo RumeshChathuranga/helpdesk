@@ -1,21 +1,10 @@
 import { mock } from "bun:test";
 
 /**
- * Single shared `@huggingface/transformers` mock, imported by every test file
- * that would otherwise load the real MiniLM pipeline.
- *
- * Two reasons this lives here rather than inline in a test file:
- *
- * 1. `bun test` shares one module registry across files, so a `mock.module`
- *    call anywhere is global — the same hazard documented in mockAi.ts.
- * 2. The factory must export the *complete* surface src/lib/embeddings.ts
- *    imports (`pipeline`, `env`, `AutoTokenizer`). When the mock happens to
- *    register before any file has loaded the real module, Bun serves this
- *    object as the module itself, and a missing key is a hard link error
- *    ("Export named 'AutoTokenizer' not found") in every file that transitively
- *    imports embeddings.ts. Whether that happens depends on test file order,
- *    so an incomplete mock passes locally and fails in CI. Keep this in sync
- *    with embeddings.ts's import list.
+ * Shared `@huggingface/transformers` mock — `mock.module` is global across the
+ * whole `bun test` run, same hazard as mockAi.ts. Must export everything
+ * embeddings.ts imports: a missing key is a link error, not an undefined, and
+ * whether it bites depends on file order. Keep in sync with that import list.
  */
 
 export const EMBED_DIM = 384;
@@ -35,8 +24,7 @@ const fakeEncode = (text: string): string[] =>
   text.trim().split(/\s+/).filter(Boolean);
 
 mock.module("@huggingface/transformers", () => ({
-  // embeddings.ts writes to these at module load; a plain mutable object is
-  // all it needs.
+  // embeddings.ts writes to these at load.
   env: { cacheDir: undefined as string | undefined, allowRemoteModels: false },
 
   AutoTokenizer: {

@@ -28,7 +28,12 @@ RUN cd /temp/prod && bun install --frozen-lockfile --ignore-scripts --production
 
 # Copy dependencies and source code, then build
 FROM base AS build
+# Bun workspaces don't hoist — the root tree alone leaves prisma, express and
+# vite unresolvable from their workspace.
 COPY --from=install /temp/dev/node_modules node_modules
+COPY --from=install /temp/dev/client/node_modules client/node_modules
+COPY --from=install /temp/dev/server/node_modules server/node_modules
+COPY --from=install /temp/dev/packages/core/node_modules packages/core/node_modules
 COPY . .
 
 # Generate Prisma Client — also acts as a schema-validity gate before the
@@ -45,6 +50,10 @@ RUN bun run build
 ENV MODEL_CACHE_DIR=/models
 RUN mkdir -p /models && bun server/scripts/prefetch-model.ts
 
+# Release installs its own prod tree at different .bun hashes, so these dev
+# symlinks would dangle if they came along.
+RUN rm -rf client/node_modules server/node_modules packages/core/node_modules
+
 # Release image — production dependencies only, no build tooling.
 FROM base AS release
 ENV NODE_ENV=production
@@ -55,6 +64,9 @@ COPY --from=install-prod /temp/prod/node_modules node_modules
 COPY --from=build /usr/src/app/client/dist client/dist
 COPY --from=build /usr/src/app/server server
 COPY --from=build /usr/src/app/packages packages
+# Same non-hoisting rule, prod tree this time.
+COPY --from=install-prod /temp/prod/server/node_modules server/node_modules
+COPY --from=install-prod /temp/prod/packages/core/node_modules packages/core/node_modules
 COPY --from=build /models /models
 COPY package.json bun.lock ./
 
