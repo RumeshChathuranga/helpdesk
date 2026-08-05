@@ -1,22 +1,8 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, mock } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "bun:test";
 import { prisma } from "../lib/prisma.js";
 import { aiMockState, resetAiMockState } from "../test/mockAi.js";
+import { FIXED_VECTOR_STRING } from "../test/mockEmbeddings.js";
 import { AI_AGENT_EMAIL } from "../config.js";
-
-const EMBED_DIM = 384;
-// A normalized (magnitude 1) fixed vector so cosine similarity against an
-// identical KnowledgeChunk row is exactly 1 — comfortably over the 0.75
-// resolution threshold — without needing a real embedding model.
-const FIXED_EMBEDDING = Array(EMBED_DIM).fill(1 / Math.sqrt(EMBED_DIM));
-const FIXED_VECTOR_STRING = `[${FIXED_EMBEDDING.join(",")}]`;
-
-mock.module("@huggingface/transformers", () => ({
-  pipeline: async () => {
-    return async (_text: string, _opts: unknown) => ({
-      tolist: () => [FIXED_EMBEDDING],
-    });
-  },
-}));
 
 describe("runProcessTicket", () => {
   let runProcessTicket: typeof import("./processTicket.js").runProcessTicket;
