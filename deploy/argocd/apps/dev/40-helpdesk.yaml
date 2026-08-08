@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helpdesk-dev-app
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://github.com/RumeshChathuranga/helpdesk.git
+    targetRevision: master
+    path: deploy/charts/helpdesk
+    helm:
+      # image-tag.yaml is rewritten by the bump-dev-tag job in
+      # .github/workflows/ci.yml and layered last. CI writes, Argo CD reads.
+      valueFiles:
+        - /deploy/envs/dev/values.yaml
+        - /deploy/envs/dev/image-tag.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: helpdesk
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      # The migration runs as a PreSync hook. If Postgres is mid-failover the
+      # first attempt fails; without a retry the whole sync stays Degraded.
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 3m

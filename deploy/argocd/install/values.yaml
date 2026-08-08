@@ -1,0 +1,66 @@
+# Values for the upstream argo-cd chart (argo/argo-cd 10.3.0, app v3.5.0).
+# The install command is manual — see devops-docs/setup/argocd-bootstrap.md.
+# Argo CD does not manage itself, so committing its configuration is the only
+# thing keeping that config reviewable.
+global:
+  domain: argocd.localtest.me
+
+configs:
+  params:
+    # Traefik terminates plain HTTP on k3d. With TLS on, argocd-server would
+    # redirect to https and the Ingress would loop.
+    server.insecure: true
+  cm:
+    # Default worst case is 3 minutes. 60s makes the CI tag bump converge while
+    # you are still watching the terminal.
+    timeout.reconciliation: 60s
+    timeout.reconciliation.jitter: 10s
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# Renders every Helm chart in the tree, so this is the component that actually
+# needs headroom.
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# No SSO on a laptop — the built-in admin user is the whole auth story here.
+dex:
+  enabled: false
+
+# Argo CD's own alerting belongs with Prometheus in Phase 4, not here.
+notifications:
+  enabled: false

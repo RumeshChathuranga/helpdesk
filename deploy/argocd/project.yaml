@@ -1,0 +1,55 @@
+# Applied by hand once, before the root app:
+#   kubectl apply -f deploy/argocd/project.yaml
+# Every Application in this repo belongs to this project, so this file is what
+# bounds the blast radius of a merged pull request.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: helpdesk
+  namespace: argocd
+spec:
+  description: Helpdesk platform — app, database, and the operators they depend on
+
+  # A source not listed here cannot be deployed, whatever a PR says.
+  sourceRepos:
+    - https://github.com/RumeshChathuranga/helpdesk.git
+    - https://bitnami.github.io/sealed-secrets
+    - https://cloudnative-pg.github.io/charts
+    - https://charts.external-secrets.io
+
+  destinations:
+    # argocd itself: the root app's only output is child Applications.
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+    - server: https://kubernetes.default.svc
+      namespace: helpdesk
+    - server: https://kubernetes.default.svc
+      namespace: cnpg-system
+    - server: https://kubernetes.default.svc
+      namespace: sealed-secrets
+    - server: https://kubernetes.default.svc
+      namespace: external-secrets
+
+  # Cluster-scoped objects are opt-in by kind. This list is exactly what the
+  # three operators install — nothing here can create a ClusterRoleBinding for
+  # an unrelated ServiceAccount without the list changing in a reviewed diff.
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+    # ClusterSecretStore is cluster-scoped; the prod overlay creates one.
+    - group: external-secrets.io
+      kind: ClusterSecretStore
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

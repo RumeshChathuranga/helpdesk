@@ -1,0 +1,29 @@
+# The app-of-apps root for k3d. This is the last manual kubectl in the project:
+#   kubectl apply -f deploy/argocd/root-dev.yaml
+# Everything under deploy/argocd/apps/dev — operators, secrets, database, app —
+# is created by Argo CD from git after this.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helpdesk-dev
+  namespace: argocd
+  finalizers:
+    # Without this, deleting the root app orphans every child Application.
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://github.com/RumeshChathuranga/helpdesk.git
+    targetRevision: master
+    path: deploy/argocd/apps/dev
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      # prune: a child Application deleted from git is deleted from the cluster.
+      # selfHeal: a hand-edited resource is reverted to what git says.
+      prune: true
+      selfHeal: true

@@ -1,12 +1,11 @@
-# k3d overrides. Applied on top of deploy/charts/helpdesk/values.yaml:
-#   helm upgrade --install helpdesk deploy/charts/helpdesk \
-#     -n helpdesk -f deploy/envs/dev/values.yaml
+# k3d overrides. Applied by Argo CD via deploy/argocd/apps/dev/40-helpdesk.yaml;
+# the equivalent by hand is
+#   helm upgrade --install helpdesk deploy/charts/helpdesk -n helpdesk \
+#     -f deploy/envs/dev/values.yaml -f deploy/envs/dev/image-tag.yaml
 #
-# Phase 3 adds envs/prod alongside this and points Argo CD at both.
+# image.tag deliberately lives in image-tag.yaml, not here — CI rewrites that
+# file and nothing else.
 image:
-  # Pin the sha-<longsha> tag that build-image.yml publishes, or the tag pushed
-  # into the cluster-local registry. "latest" is here so a fresh clone works.
-  tag: latest
   pullPolicy: IfNotPresent
 
 env:

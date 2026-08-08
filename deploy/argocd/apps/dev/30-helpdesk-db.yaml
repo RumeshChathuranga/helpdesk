@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helpdesk-db-dev
+  namespace: argocd
+  annotations:
+    # Wave 30 — Argo ships a health check for postgresql.cnpg.io/Cluster, so
+    # wave 40 waits for a database that actually accepts connections, not just
+    # for the object to exist.
+    argocd.argoproj.io/sync-wave: "30"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://github.com/RumeshChathuranga/helpdesk.git
+    targetRevision: master
+    path: deploy/charts/helpdesk-db
+    helm:
+      # A leading slash resolves against the repository root, which keeps this
+      # a single-source Application instead of a multi-source $values ref.
+      valueFiles:
+        - /deploy/envs/dev/db-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: helpdesk
+  syncPolicy:
+    automated:
+      # prune stays off for the database: a chart edit must never be able to
+      # delete the Cluster, and with it the PVC holding every ticket.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
