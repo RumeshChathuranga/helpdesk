@@ -121,6 +121,48 @@ jobs:
       - name: Bun test (server routes + webhooks)
         run: bun run test:server
 
+  manifests:
+    name: Chart manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.19.0
+
+      - name: helm lint
+        run: helm lint deploy/charts/helpdesk deploy/charts/helpdesk-db
+
+      # Every chart against every overlay Argo CD points at, so a values file
+      # that no longer matches its chart fails here rather than half-syncing.
+      - name: helm template (all env overlays)
+        run: |
+          mkdir -p rendered
+          for env in dev prod; do
+            helm template helpdesk deploy/charts/helpdesk -n helpdesk \
+              -f "deploy/envs/$env/values.yaml" \
+              -f "deploy/envs/$env/image-tag.yaml" > "rendered/app-$env.yaml"
+            helm template helpdesk-db deploy/charts/helpdesk-db -n helpdesk \
+              -f "deploy/envs/$env/db-values.yaml" > "rendered/db-$env.yaml"
+          done
+
+      - name: Install kubeconform
+        run: |
+          curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
+            | sudo tar -xz -C /usr/local/bin kubeconform
+
+      # CRD-backed kinds (Cluster, SealedSecret, Application, ExternalSecret)
+      # aren't in the upstream schema set, hence the CRDs-catalog fallback.
+      - name: Validate rendered manifests and the Argo CD tree
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas \
+            -ignore-filename-pattern 'values\.yaml' \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered/ deploy/argocd/ deploy/envs/prod/secrets/
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -157,3 +199,40 @@ jobs:
       # trusted with packages:write/id-token:write anyway) publishes and
       # signs.
       push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+
+  # The CI half of GitOps: CI writes the tag into git, Argo CD reads it out of
+  # git and syncs. Nothing here holds a kubeconfig.
+  bump-dev-tag:
+    name: Bump dev image tag
+    needs: [build, manifests]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The only job in this workflow that can write to the repo.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: master
+
+      # yq v4 ships in the runner image. Matches type=sha,format=long in
+      # build-image.yml, so this tag is the image that was just signed.
+      - name: Point the dev overlay at the image this run built
+        env:
+          TAG: sha-${{ github.sha }}
+        run: yq -i '.image.tag = strenv(TAG)' deploy/envs/dev/image-tag.yaml
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "dev overlay already at this tag"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # [skip ci] breaks the loop: without it this commit triggers CI, which
+          # builds a new sha, which bumps again, forever.
+          git commit -am "chore(deploy): bump dev image to sha-${GITHUB_SHA} [skip ci]"
+          git pull --rebase --autostash
+          git push
