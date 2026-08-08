@@ -1,0 +1,89 @@
+# PROD — written in Phase 3, never applied. Phase 5 stands up the EKS cluster
+# this targets; until then nothing here has been run against a real API server.
+# Applied by Argo CD via deploy/argocd/apps/prod/40-helpdesk.yaml.
+#
+# image.tag lives in image-tag.yaml alongside this file, so a promotion is a
+# one-line diff in an obvious place.
+image:
+  pullPolicy: IfNotPresent
+
+env:
+  NODE_ENV: production
+  # Replace with the real hostname at promotion time. These two must match the
+  # Ingress host below or auth cookies and CORS will not line up.
+  BETTER_AUTH_URL: https://helpdesk.example.com
+  CLIENT_URL: https://helpdesk.example.com
+  AI_AGENT_EMAIL: ai@cites.uom.lk
+  SUPPORT_EMAIL: cites@uom.lk
+  BRAND_NAME: University of Moratuwa — CITeS IT Help Desk
+  # The one line that separates prod from every other environment: replies
+  # actually leave the building.
+  EMAIL_DRIVER: smtp
+  EMAIL_FROM: cites@uom.lk
+  EMAIL_FROM_NAME: CITeS IT Help Desk
+  SMTP_HOST: smtp.gmail.com
+  SMTP_PORT: "465"
+  SMTP_SECURE: "true"
+  SHUTDOWN_DRAIN_MS: "5000"
+  SHUTDOWN_JOB_TIMEOUT_MS: "25000"
+  SHUTDOWN_TIMEOUT_MS: "30000"
+
+api:
+  replicaCount: 3
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# Two workers, so losing a node does not stop ticket processing entirely. CPU
+# is the wrong scaling signal here (a worker blocked on the AI provider looks
+# idle), which is why there is no worker HPA until Phase 4 has queue depth.
+worker:
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 12
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: true
+  # Absolute rather than a percentage: with 3 replicas this survives a node
+  # drain without ever dropping below two.
+  minAvailable: 2
+
+ingress:
+  enabled: true
+  className: alb
+  host: helpdesk.example.com
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    # ip mode targets pods directly, so a rolling update deregisters the old
+    # pod instead of draining a whole node.
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health/ready
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Set the ACM certificate ARN at promotion time. Never commit a real ARN.
+    # alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
+  tls: []
+
+networkPolicy:
+  enabled: true
+  # The AWS Load Balancer Controller runs here; in ip target mode the ALB's own
+  # ENIs reach the pods from the VPC, which is what probeSourceCIDRs covers.
+  ingressControllerNamespace: kube-system
+  egressPorts: [443, 465]
+  # Replace with the VPC CIDR from the Phase 5 Terraform.
+  probeSourceCIDRs: ["10.0.0.0/16"]

@@ -1,0 +1,25 @@
+# PROD app-of-apps — written in Phase 3, never applied. Phase 5 applies this
+# once against EKS, after the Terraform has created the cluster, the IRSA role
+# and the AWS Secrets Manager entry.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helpdesk-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://github.com/RumeshChathuranga/helpdesk.git
+    targetRevision: master
+    path: deploy/argocd/apps/prod
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

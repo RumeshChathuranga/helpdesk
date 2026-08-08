@@ -1,0 +1,29 @@
+# PROD — written in Phase 3, never applied.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helpdesk-db-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://github.com/RumeshChathuranga/helpdesk.git
+    targetRevision: master
+    path: deploy/charts/helpdesk-db
+    helm:
+      valueFiles:
+        - /deploy/envs/prod/db-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: helpdesk
+  syncPolicy:
+    automated:
+      # Never prune the production database.
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

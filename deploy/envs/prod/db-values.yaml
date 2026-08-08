@@ -1,0 +1,29 @@
+# PROD — written in Phase 3, never applied. Phase 5 stands up the EKS cluster
+# this targets; until then nothing here has been run against a real API server.
+#
+#   helm upgrade --install helpdesk-db deploy/charts/helpdesk-db \
+#     -n helpdesk -f deploy/envs/prod/db-values.yaml
+# In practice Argo CD applies it — see deploy/argocd/apps/prod/30-helpdesk-db.yaml.
+
+# Three instances is the smallest count that survives losing one and still has
+# a quorum. The dev overlay's 1 is the laptop concession, not the default.
+instances: 3
+
+storage:
+  size: 50Gi
+  # gp3 over the EKS default gp2: same price band, better baseline IOPS.
+  storageClass: gp3
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: "2"
+    memory: 4Gi
+
+postgresql:
+  parameters:
+    # Two API replicas plus workers plus the migration hook, times the Prisma
+    # pool, with headroom for CNPG's own replication connections.
+    max_connections: "200"
