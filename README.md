@@ -26,6 +26,7 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 - **Inbound Email Webhooks:** Secure webhook endpoints configured to parse raw inbound email payloads directly into structured support tickets, threading replies (including replies-to-replies) onto the correct ticket via `In-Reply-To`/`References`.
 - **Outbound Email:** Agent and (approved) AI replies are delivered to the customer's inbox through a pluggable email adapter (SMTP in production, a no-op console logger everywhere else) via a `pg-boss` background job with retry and idempotent delivery. See [`docs/email-setup.md`](docs/email-setup.md) to configure it and test the full send/receive loop against your own Gmail account.
 - **Background Job Processing:** Robust asynchronous job queue (using `pg-boss`) to handle AI classification, embedding generation, and auto-reply tasks reliably in the background without blocking the main API thread.
+- **Split API / Worker Processes:** One image, one entrypoint, three modes via `APP_ROLE` (`all` for local dev, `api` and `worker` in containers) — so the web tier and the AI pipeline scale and fail independently. Both expose `/api/health/live` (process alive, never touches the DB) and `/api/health/ready` (accepting traffic; returns 503 while draining or when Postgres is unreachable), and both drain in-flight requests and jobs on `SIGTERM` before exiting.
 - **Monorepo Architecture:** Clean codebase separation using Bun workspaces (`packages/core`) to share types and validation schemas across the client and server.
 
 ## Tech Stack
@@ -51,6 +52,9 @@ This experience highlighted a clear opportunity for optimization. If an issue is
 **Deployment & Tooling:**
 - Bun (Package manager and runtime)
 - Docker & Docker Compose (Containerization)
+- Kubernetes via Helm charts (`deploy/`), with PostgreSQL managed by the CloudNativePG operator; [k3d](https://k3d.io/) for a local cluster
+- GitHub Actions (CI, image build/publish to GHCR) with Trivy scanning, SPDX SBOM, and keyless Cosign signing
+- Jenkins (`Jenkinsfile`) mirroring the CI stages on a self-hosted controller
 
 ## Getting Started
 
@@ -107,14 +111,97 @@ bun run test:e2e      # Playwright end-to-end tests
 
 Server and e2e tests run against a separate Postgres database. Configure `server/.env.test` (see `server/.env.test.example`), then run `bun run db:test:setup` once to apply migrations and `bun run db:test:seed` to create the fixture users (admin, agent, AI) and sample tickets before `bun run test:server` or `bun run test:e2e`.
 
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, `test:client`, `test:server` against a `pgvector/pgvector:pg15` service container, and `bun audit` on every push/PR.
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push and PR: lint, typecheck, `test:client`, `test:server`
+against a `pgvector/pgvector:pg15` service container, and `bun audit` (reported in full, gated at
+critical). Once those pass it calls `build-image.yml`, which builds the release image and then:
+
+- scans it with Trivy — the full report goes to the GitHub Security tab, the build fails on `CRITICAL`
+- generates an SPDX SBOM
+- **on a push to `master` only**, pushes to GHCR, signs the digest with keyless Cosign, and attaches
+  the SBOM as an attestation
+
+PRs build and scan but never publish, so nothing unscanned is ever pushed and nothing unpublished is
+ever signed. Third-party actions are pinned by commit SHA, and the Trivy image by digest. Published
+images land at `ghcr.io/rumeshchathuranga/helpdesk`, tagged `sha-<long-sha>` plus the branch name and
+`latest` on `master`. The dev overlay defaults to `latest` so a fresh clone runs; pin the `sha-` tag
+for anything you care about reproducing.
+
+`Jenkinsfile` mirrors the lint/typecheck/test/build stages on a self-hosted Jenkins controller
+(setup in `jenkins/`). GitHub Actions remains the real gate — Jenkins does not scan, SBOM, or sign.
 
 ## Docker Deployment
 
-To spin up the entire stack (Database and Application) locally using Docker Compose:
+To spin up the entire stack locally using Docker Compose:
 
 ```bash
+cp .env.example .env      # at minimum, set BETTER_AUTH_SECRET — compose refuses to start without it
 docker compose up --build -d
 ```
 
-The app is served on `http://localhost:3000`.
+Four services come up: `db` (pgvector), a one-shot `migrate` job, then `api` and `worker`. Migrations
+are deliberately a separate service rather than part of the app's start command, so two replicas
+booting together can't race each other. The app is served on `http://localhost:3000`.
+
+## Kubernetes Deployment
+
+For a real cluster (or a local [k3d](https://k3d.io/) cluster — config in `deploy/k3d/`) instead
+of a single Docker host, Helm charts live in `deploy/`. The database is a separate release so its
+lifecycle is independent of the app; migrations run automatically as a Helm hook before any app
+pod starts.
+
+```bash
+# 1. CloudNativePG operator, then the database it manages
+helm upgrade --install cnpg cnpg/cloudnative-pg -n cnpg-system --create-namespace --wait
+helm upgrade --install helpdesk-db deploy/charts/helpdesk-db -n helpdesk --create-namespace \
+  -f deploy/envs/dev/db-values.yaml --wait
+
+# 2. App secrets (never templated into the chart — see deploy/charts/helpdesk/values.yaml)
+kubectl create secret generic helpdesk-secrets -n helpdesk \
+  --from-literal=BETTER_AUTH_SECRET="$(openssl rand -base64 32)" \
+  --from-literal=GITHUB_MODELS_TOKEN=<your-token>
+
+# 3. The app itself
+helm upgrade --install helpdesk deploy/charts/helpdesk -n helpdesk \
+  -f deploy/envs/dev/values.yaml --wait
+```
+
+The API and worker run as separate Deployments from the same image (`APP_ROLE`), pulled from
+`ghcr.io/rumeshchathuranga/helpdesk` and fronted by an Ingress, with an HPA and PodDisruptionBudget
+on the API and NetworkPolicies scoping each pod to only the traffic it needs. The
+`/api/health/live` and `/api/health/ready` endpoints back the liveness and readiness probes, so a
+pod is pulled out of the Service while it drains rather than dropping in-flight replies.
+
+> **Status:** the charts are `helm lint` / `helm template` clean and the k3d cluster config is
+> committed, but the end-to-end `helm install` on a live cluster — and the zero-dropped-requests
+> check under load during a rolling restart — has not been run yet. Treat this section as the
+> intended path, not a verified one.
+
+## Observability
+
+The app exports Prometheus metrics on a **separate port** (`METRICS_PORT`, default `9464`) rather
+than a path on the API port. The Ingress routes only the API port, so `/metrics` is reachable from
+inside the cluster and nowhere else — and the worker, which serves no API, still gets a scrape
+target. Logs are structured JSON via pino; nothing writes to `console` except the one pre-logger
+config check.
+
+Alongside the usual RED metrics for HTTP, the interesting series are domain ones:
+
+| Metric | Question it answers |
+| --- | --- |
+| `helpdesk_tickets_processed_total{outcome}` | What fraction of tickets the AI resolved without a human |
+| `helpdesk_pgboss_queue_depth{queue,state}` | Is the pipeline keeping up — the correct autoscaling signal for the worker, where CPU is not |
+| `helpdesk_ticket_pipeline_duration_seconds` | End-to-end latency from ticket creation, queue wait included |
+| `helpdesk_stale_tickets_swept_total` | **Alerted on at any non-zero value** — the sweeper only ever touches a ticket the primary pipeline dropped |
+| `helpdesk_ai_provider_errors_total{operation}` | GitHub Models degradation, split by classify/resolve/summarize/polish |
+| `helpdesk_rag_retrievals_total{result}` | How often the knowledge base clears the similarity floor |
+
+The Helm chart ships a `PodMonitor`, a `PrometheusRule` with nine alerts, and the Grafana dashboard
+itself as a ConfigMap — so a metric rename and the panel that draws it change in the same commit.
+Prometheus, Grafana, Alertmanager, Loki and Grafana Alloy are installed by Argo CD from
+`deploy/argocd/apps/`. Setup and verification: `devops-docs/setup/kube-prometheus-stack.md`.
+
+CI renders the chart for every environment overlay and runs `promtool check rules` over the
+resulting alert expressions, so a typo'd PromQL query fails the build instead of silently never
+firing.

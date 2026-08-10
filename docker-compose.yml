@@ -20,6 +20,7 @@ x-app-env: &app-env
   SMTP_SECURE: ${SMTP_SECURE:-true}
   SMTP_USER: ${SMTP_USER:-}
   SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
 
 services:
   db:
@@ -56,12 +57,16 @@ services:
     build: .
     ports:
       - "3000:3000"
+      # Prometheus scrape port. Published here only so `curl localhost:9464/metrics`
+      # works while developing; in Kubernetes nothing outside the cluster reaches it.
+      - "9464:9464"
     init: true
     restart: unless-stopped
     environment:
       <<: *app-env
       APP_ROLE: api
       PORT: "3000"
+      METRICS_PORT: "9464"
     depends_on:
       db:
         condition: service_healthy
@@ -70,12 +75,16 @@ services:
 
   worker:
     build: .
+    ports:
+      - "9465:9465"
     init: true
     restart: unless-stopped
     environment:
       <<: *app-env
       APP_ROLE: worker
       PORT: "3001"
+      # Different host port from the API's; only the worker reports queue depth.
+      METRICS_PORT: "9465"
     depends_on:
       db:
         condition: service_healthy

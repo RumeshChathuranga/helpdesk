@@ -94,6 +94,8 @@ ENV ALLOW_REMOTE_MODELS=false
 
 USER bun
 EXPOSE 3000/tcp
+# Prometheus scrape port, on its own so nothing routing the API port can reach it.
+EXPOSE 9464/tcp
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
   CMD ["bun", "server/scripts/healthcheck.ts"]
