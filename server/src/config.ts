@@ -7,12 +7,47 @@ export type AppRole = "all" | "api" | "worker";
 function readAppRole(): AppRole {
   const raw = process.env.APP_ROLE ?? "all";
   if (raw !== "all" && raw !== "api" && raw !== "worker") {
+    // The one place console survives: the pino logger reads APP_ROLE and
+    // LOG_LEVEL from this module, so importing it here would be circular.
     console.error(`FATAL: APP_ROLE must be one of all|api|worker (got ${JSON.stringify(raw)})`);
     process.exit(1);
   }
   return raw;
 }
 export const APP_ROLE: AppRole = readAppRole();
+
+// ─── Logging ──────────────────────────────────────────────────────────────────
+
+/** pino level. "debug" locally is fine; in a cluster it multiplies Loki volume.
+ *  Tests drop to "warn" so a failing assertion isn't buried under pipeline chatter. */
+function defaultLogLevel(): string {
+  switch (process.env.NODE_ENV) {
+    case "production":
+      return "info";
+    case "test":
+      return "warn";
+    default:
+      return "debug";
+  }
+}
+export const LOG_LEVEL = process.env.LOG_LEVEL ?? defaultLogLevel();
+
+// ─── Metrics ──────────────────────────────────────────────────────────────────
+
+/** Off in tests by default — a scrape listener per test file would fight for ports. */
+export const METRICS_ENABLED =
+  (process.env.METRICS_ENABLED ?? (process.env.NODE_ENV === "test" ? "false" : "true")) ===
+  "true";
+
+/** Deliberately a second listener on its own port: the Ingress only routes the
+ *  API port, so /metrics is unreachable from the internet without an authn layer
+ *  we would otherwise have to build. It also gives the worker — which serves no
+ *  API — a scrape target. */
+export const METRICS_PORT = Number(process.env.METRICS_PORT ?? 9464);
+
+/** How often the pg-boss queue-depth gauge may hit the database. The scrape
+ *  interval is 30s, so this only matters if several Prometheus replicas scrape. */
+export const METRICS_QUEUE_POLL_MS = Number(process.env.METRICS_QUEUE_POLL_MS ?? 15000);
 
 // ─── Graceful shutdown ────────────────────────────────────────────────────────
 

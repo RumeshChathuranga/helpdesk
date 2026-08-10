@@ -4,7 +4,10 @@ import type { ZodError } from "zod";
 import { prisma } from "../prisma.js";
 import { enqueueProcessTicket } from "../../jobs/processTicket.js";
 import { AI_AGENT_EMAIL } from "../../config.js";
+import { childLogger } from "../logger.js";
 import { inferRequesterType } from "./inferRequesterType.js";
+
+const log = childLogger("inbound-email");
 
 export type InboundEmailResult = {
   ticketId: string;
@@ -78,8 +81,9 @@ export async function createFromInboundEmail(
 
   const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
   if (!aiAgent) {
-    console.warn(
-      `[inbound-email] AI agent user not found for email ${AI_AGENT_EMAIL} — new ticket will be created unassigned`,
+    log.warn(
+      { aiAgentEmail: AI_AGENT_EMAIL },
+      "AI agent user not found — new ticket will be created unassigned",
     );
   }
 
@@ -102,7 +106,7 @@ export async function createFromInboundEmail(
   try {
     await enqueueProcessTicket({ ticketId: ticket.id, subject, body });
   } catch (err) {
-    console.error(`Failed to enqueue process-ticket job for ${ticket.id}:`, err);
+    log.error({ ticketId: ticket.id, err }, "failed to enqueue process-ticket job");
     await prisma.ticket.update({
       where: { id: ticket.id },
       data: { status: "OPEN" },

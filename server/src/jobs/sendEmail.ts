@@ -10,6 +10,10 @@ import {
 } from "../lib/email/index.js";
 import type { SendResult } from "../lib/email/index.js";
 import { EMAIL_FROM, EMAIL_FROM_NAME, EMAIL_REPLY_TO } from "../config.js";
+import { childLogger } from "../lib/logger.js";
+import { emailsSent } from "../lib/metrics.js";
+
+const log = childLogger("send-email");
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -36,7 +40,7 @@ export async function registerSendEmailWorker(): Promise<void> {
     },
   );
 
-  console.log(`[pg-boss] Worker registered for queue: ${SEND_EMAIL_QUEUE}`);
+  log.info({ queue: SEND_EMAIL_QUEUE }, "worker registered");
 }
 
 /**
@@ -70,9 +74,8 @@ export async function runSendEmail(replyId: string): Promise<void> {
   });
 
   if (count === 0) {
-    console.info(
-      `[send-email] Reply ${replyId} not claimable (already sent, discarded, or in flight) — skipping`,
-    );
+    emailsSent.inc({ outcome: "skipped" });
+    log.info({ replyId }, "reply not claimable (already sent, discarded, or in flight) — skipping");
     return;
   }
 
@@ -120,7 +123,8 @@ export async function runSendEmail(replyId: string): Promise<void> {
       where: { id: replyId, deliveryState: "SENDING" },
       data: { deliveryState: "NOT_QUEUED" },
     });
-    console.warn(`[send-email] Reply ${replyId} is not sendable — leaving it unsent`);
+    emailsSent.inc({ outcome: "skipped" });
+    log.warn({ replyId }, "reply is not sendable — leaving it unsent");
     return; // Permanent condition — retrying would not help.
   }
 
@@ -168,8 +172,9 @@ export async function runSendEmail(replyId: string): Promise<void> {
       where: { id: replyId },
       data: { deliveryState: "FAILED", deliveryError: result.error.slice(0, 500) },
     });
+    emailsSent.inc({ outcome: "failed" });
     if (result.permanent) {
-      console.error(`[send-email] Permanent failure for reply ${replyId}: ${result.error}`);
+      log.error({ replyId, error: result.error }, "permanent send failure");
       return; // Swallow — no retry.
     }
     // Rethrow so pg-boss retries.
@@ -199,7 +204,8 @@ export async function runSendEmail(replyId: string): Promise<void> {
 
   await prisma.$transaction(writes);
 
-  console.info(`[send-email] Reply ${replyId} sent ✓`);
+  emailsSent.inc({ outcome: "sent" });
+  log.info({ replyId }, "reply sent");
 }
 
 // ─── Enqueue helper ───────────────────────────────────────────────────────────

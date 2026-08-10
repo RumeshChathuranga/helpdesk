@@ -11,6 +11,8 @@ import { healthRouter } from "./routes/health.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { notFound } from "./middleware/notFound.js";
 import { apiLimiter, authLimiter } from "./middleware/rateLimiter.js";
+import { httpMetrics } from "./middleware/httpMetrics.js";
+import { logger } from "./lib/logger.js";
 
 /** Client/server DSNs live in separate env files, but share a Sentry org host,
  *  so SENTRY_DSN doubles as the CSP origin unless overridden. */
@@ -20,8 +22,8 @@ function getSentryIngestOrigin(): string | undefined {
   try {
     return new URL(dsn).origin;
   } catch {
-    console.warn(
-      "[app] SENTRY_DSN/SENTRY_INGEST_ORIGIN is not a valid URL; CSP connect-src left unmodified"
+    logger.warn(
+      "SENTRY_DSN/SENTRY_INGEST_ORIGIN is not a valid URL; CSP connect-src left unmodified"
     );
     return undefined;
   }
@@ -57,6 +59,10 @@ export function createApp(): Express {
   // Probes must not consume the API rate-limit bucket — a 5s readiness probe
   // is 180 requests per 15-minute window, and apiLimiter's ceiling is 200.
   app.use("/api/health", healthRouter);
+
+  // After the health router on purpose: a 5s readiness probe would otherwise be
+  // most of the request rate and make the RED dashboard meaningless.
+  app.use(httpMetrics);
 
   if (process.env.NODE_ENV === "production") {
     app.use("/api/auth", authLimiter);

@@ -1,17 +1,20 @@
 import "./instrument.js";
 import { createApp, createHealthApp } from "./app.js";
-import { APP_ROLE } from "./config.js";
+import { APP_ROLE, METRICS_ENABLED } from "./config.js";
 import { startBoss } from "./lib/boss.js";
+import { logger } from "./lib/logger.js";
+import { initMetrics } from "./lib/metrics.js";
+import { startMetricsServer } from "./lib/metricsServer.js";
 import { installShutdownHandlers } from "./lib/shutdown.js";
 import { registerAllWorkers } from "./jobs/registerWorkers.js";
 
 if (!process.env.BETTER_AUTH_SECRET) {
-  console.error("FATAL: BETTER_AUTH_SECRET env var is not set");
+  logger.fatal("BETTER_AUTH_SECRET env var is not set");
   process.exit(1);
 }
 
 if (!process.env.DATABASE_URL) {
-  console.error("FATAL: DATABASE_URL env var is not set");
+  logger.fatal("DATABASE_URL env var is not set");
   process.exit(1);
 }
 
@@ -27,8 +30,15 @@ if (APP_ROLE !== "api") {
   await registerAllWorkers();
 }
 
+// After startBoss() — the queue-depth gauge queries pg-boss on scrape.
+let metricsServer;
+if (METRICS_ENABLED) {
+  initMetrics();
+  metricsServer = startMetricsServer();
+}
+
 const server = app.listen(PORT, () => {
-  console.log(`[${APP_ROLE}] listening on http://localhost:${PORT}`);
+  logger.info({ port: PORT }, "listening");
 });
 
-installShutdownHandlers(server);
+installShutdownHandlers(server, metricsServer);

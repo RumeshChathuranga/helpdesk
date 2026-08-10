@@ -1,4 +1,5 @@
 import { EMAIL_DRIVER } from "../../config.js";
+import { childLogger } from "../logger.js";
 import { createLogDriver } from "./logDriver.js";
 import { createSmtpDriver } from "./smtpDriver.js";
 import type { EmailDriver } from "./types.js";
@@ -8,7 +9,7 @@ let cached: EmailDriver | undefined;
 export function getEmailDriver(): EmailDriver {
   if (!cached) {
     cached = EMAIL_DRIVER === "smtp" ? createSmtpDriver() : createLogDriver();
-    console.log(`[email] driver = ${cached.name}`);
+    childLogger("email").info({ driver: cached.name }, "email driver selected");
   }
   return cached;
 }

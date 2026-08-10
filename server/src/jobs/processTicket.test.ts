@@ -3,6 +3,12 @@ import { prisma } from "../lib/prisma.js";
 import { aiMockState, resetAiMockState } from "../test/mockAi.js";
 import { FIXED_VECTOR_STRING } from "../test/mockEmbeddings.js";
 import { AI_AGENT_EMAIL } from "../config.js";
+import { ticketPipelineDuration, ticketsProcessed } from "../lib/metrics.js";
+
+async function outcomeCount(outcome: string): Promise<number> {
+  const { values } = await ticketsProcessed.get();
+  return values.find((v) => v.labels.outcome === outcome)?.value ?? 0;
+}
 
 describe("runProcessTicket", () => {
   let runProcessTicket: typeof import("./processTicket.js").runProcessTicket;
@@ -243,5 +249,33 @@ describe("runProcessTicket", () => {
     });
     expect(replies).toHaveLength(0);
     expect(aiMockState.resolutionCallCount).toBe(0);
+  });
+
+  it("records the terminal outcome and the pipeline latency for the auto-resolve path", async () => {
+    const before = await outcomeCount("resolved");
+
+    aiMockState.classificationCategory = "ACCOUNT_ACCESS";
+    aiMockState.resolution = { resolved: true, reply: "Answer from the knowledge base." };
+    await insertMatchingKnowledgeChunk("Refunds are processed within 5 business days.");
+
+    const ticket = await createProcessingTicket("Refund question", "Where is my refund?");
+
+    await runProcessTicket({
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      body: ticket.body,
+      aiAgent: { id: aiAgentId },
+      githubToken: "fake-token",
+    });
+
+    expect(await outcomeCount("resolved")).toBe(before + 1);
+
+    // The histogram is what the auto-resolve SLO is measured against, so an
+    // outcome recorded without a duration would be a silent hole in it.
+    const { values } = await ticketPipelineDuration.get();
+    const observed = values.find(
+      (v) => v.metricName?.endsWith("_count") && v.labels.outcome === "resolved",
+    );
+    expect(observed?.value).toBeGreaterThan(0);
   });
 });

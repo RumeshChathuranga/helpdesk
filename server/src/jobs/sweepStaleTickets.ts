@@ -1,6 +1,10 @@
 import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
 import { AI_AGENT_EMAIL } from "../config.js";
+import { childLogger } from "../lib/logger.js";
+import { staleTicketsSwept } from "../lib/metrics.js";
+
+const log = childLogger("sweep-stale-tickets");
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -28,9 +32,7 @@ export async function registerSweepStaleTicketsWorker(): Promise<void> {
 
   await boss.schedule(SWEEP_STALE_TICKETS_QUEUE, SWEEP_CRON, {});
 
-  console.log(
-    `[pg-boss] Worker registered + scheduled (${SWEEP_CRON}) for queue: ${SWEEP_STALE_TICKETS_QUEUE}`,
-  );
+  log.info({ queue: SWEEP_STALE_TICKETS_QUEUE, cron: SWEEP_CRON }, "worker registered + scheduled");
 }
 
 /** Flips tickets stale past STALE_THRESHOLD_MS to OPEN, unassigning the AI agent. */
@@ -55,8 +57,9 @@ export async function sweepStaleTickets(): Promise<void> {
 
   const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
   if (!aiAgent) {
-    console.warn(
-      `[sweep-stale-tickets] AI agent user not found for email ${AI_AGENT_EMAIL} — skipping AI-assignee unassign step`,
+    log.warn(
+      { aiAgentEmail: AI_AGENT_EMAIL },
+      "AI agent user not found — skipping AI-assignee unassign step",
     );
   }
   const aiAssignedIds = aiAgent
@@ -75,7 +78,12 @@ export async function sweepStaleTickets(): Promise<void> {
     data: { status: "OPEN" },
   });
 
-  console.info(
-    `[sweep-stale-tickets] Swept ${staleIds.length} stale ticket(s) (stuck > ${STALE_THRESHOLD_MS / 60000}min) to OPEN`,
+  // Alerted on rather than graphed: this counter moving at all means a ticket
+  // escaped the primary pipeline, which is a bug, not a workload characteristic.
+  staleTicketsSwept.inc(staleIds.length);
+
+  log.warn(
+    { swept: staleIds.length, thresholdMinutes: STALE_THRESHOLD_MS / 60000 },
+    "swept stale tickets to OPEN",
   );
 }

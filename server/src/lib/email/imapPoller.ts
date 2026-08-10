@@ -2,6 +2,9 @@ import { ImapFlow } from "imapflow";
 import { simpleParser } from "mailparser";
 import { FIELD_LIMITS } from "core";
 import type { InboundEmail } from "core";
+import { childLogger } from "../logger.js";
+
+const log = childLogger("imap-poller");
 
 export interface ImapPollerConfig {
   host: string;
@@ -80,13 +83,14 @@ async function postToWebhook(
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    console.error(`[imap-poller] Webhook rejected message (${res.status}): ${text}`);
+    log.error({ status: res.status, body: text }, "webhook rejected message");
     return false;
   }
 
   const json = (await res.json()) as { ticketId: string; created: string };
-  console.info(
-    `[imap-poller] ${payload.fromEmail} → ticket ${json.ticketId} (${json.created})`,
+  log.info(
+    { fromEmail: payload.fromEmail, ticketId: json.ticketId, created: json.created },
+    "message ingested",
   );
   return true;
 }
@@ -128,7 +132,7 @@ export async function pollOnce(config: ImapPollerConfig): Promise<PollResult> {
         try {
           payload = await parseImapMessage(message.source);
         } catch (err) {
-          console.error(`[imap-poller] Failed to parse message uid ${uid}:`, err);
+          log.error({ uid, err }, "failed to parse message");
         }
 
         if (!payload) {

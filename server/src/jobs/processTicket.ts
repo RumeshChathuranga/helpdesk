@@ -9,6 +9,18 @@ import { isEmailSourced } from "../lib/tickets/isEmailSourced.js";
 import { getAiModel } from "../lib/aiClient.js";
 import { AI_AGENT_EMAIL, BRAND_NAME } from "../config.js";
 import { PROMPT_TAG } from "../lib/ai/promptTags.js";
+import { childLogger } from "../lib/logger.js";
+import {
+  aiProviderErrors,
+  ragRetrievals,
+  secondsSince,
+  ticketPipelineDuration,
+  ticketsClassified,
+  ticketsProcessed,
+  type TicketOutcome,
+} from "../lib/metrics.js";
+
+const log = childLogger("process-ticket");
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -74,6 +86,13 @@ const resolutionSchema = z.object({
 
 // ─── Recovery helper ───────────────────────────────────────────────────────────
 
+/** Both halves of "how is the pipeline doing" in one call, so a new terminal
+ *  path cannot record the count without the latency. */
+function recordOutcome(outcome: TicketOutcome, createdAt: Date | undefined): void {
+  ticketsProcessed.inc({ outcome });
+  if (createdAt) ticketPipelineDuration.observe({ outcome }, secondsSince(createdAt));
+}
+
 /** Flips a ticket to OPEN, unassigning the AI agent. Used both for a normal
  *  can't-resolve and as the top-level failure recovery path. */
 async function escalateToOpen(
@@ -112,8 +131,9 @@ export async function registerProcessTicketWorker(): Promise<void> {
       // Found up front so the catch-all recovery below can use it even on early failure.
       const aiAgent = await prisma.user.findUnique({ where: { email: AI_AGENT_EMAIL } });
       if (!aiAgent) {
-        console.warn(
-          `[process-ticket] AI agent user not found for email ${AI_AGENT_EMAIL} — ticket will be processed without an AI assignee`,
+        log.warn(
+          { aiAgentEmail: AI_AGENT_EMAIL },
+          "AI agent user not found — ticket will be processed without an AI assignee",
         );
       }
 
@@ -136,21 +156,21 @@ export async function registerProcessTicketWorker(): Promise<void> {
           },
         });
 
-        console.info(`[process-ticket] Ticket ${ticketId} → PROCESSING`);
+        log.info({ ticketId }, "ticket → PROCESSING");
 
         await runProcessTicket({ ticketId, subject, body, aiAgent, githubToken });
       } catch (err) {
-        console.error(
-          `[process-ticket] Unhandled failure for ${ticketId}, forcing OPEN so it isn't stranded:`,
-          err,
-        );
+        log.error({ ticketId, err }, "unhandled failure, forcing OPEN so the ticket isn't stranded");
+        // No duration observation here: the run aborted before the ticket row
+        // was read, so there is no trustworthy start time to measure against.
+        ticketsProcessed.inc({ outcome: "failed" });
         await escalateToOpen(ticketId, aiAgent?.id);
         throw err; // rethrow so pg-boss still records the failure/retry
       }
     },
   );
 
-  console.log(`[pg-boss] Worker registered for queue: ${PROCESS_TICKET_QUEUE}`);
+  log.info({ queue: PROCESS_TICKET_QUEUE }, "worker registered");
 }
 
 /**
@@ -176,13 +196,16 @@ export async function runProcessTicket({
     throw new Error("GITHUB_MODELS_TOKEN not set");
   }
 
-  // Derived from the sender's address, not email text — safe in the prompt.
-  const ticketForRequesterType = await prisma.ticket.findUnique({
+  // requesterType is derived from the sender's address, not email text — safe in
+  // the prompt. createdAt is the clock start for the pipeline-latency histogram,
+  // so it deliberately includes time the job spent queued.
+  const ticketRow = await prisma.ticket.findUnique({
     where: { id: ticketId },
-    select: { requesterType: true },
+    select: { requesterType: true, createdAt: true },
   });
-  const requesterTypeLine = ticketForRequesterType?.requesterType
-    ? `\n## Requester\nThe requester's role is: ${ticketForRequesterType.requesterType}.\n`
+  const createdAt = ticketRow?.createdAt;
+  const requesterTypeLine = ticketRow?.requesterType
+    ? `\n## Requester\nThe requester's role is: ${ticketRow.requesterType}.\n`
     : "";
 
   // ── Step 1: Classify ──────────────────────────────────────────────────────
@@ -201,10 +224,8 @@ export async function runProcessTicket({
       category = parsed.data.category;
     }
   } catch (err) {
-    console.warn(
-      `[process-ticket] Classification failed for ${ticketId}, using OTHER:`,
-      err,
-    );
+    aiProviderErrors.inc({ operation: "classify" });
+    log.warn({ ticketId, err }, "classification failed, using OTHER");
   }
 
   await prisma.ticket.update({
@@ -212,9 +233,8 @@ export async function runProcessTicket({
     data: { category },
   });
 
-  console.info(
-    `[process-ticket] Ticket ${ticketId} classified as ${category}`,
-  );
+  ticketsClassified.inc({ category });
+  log.info({ ticketId, category }, "ticket classified");
 
   // ── Step 2: Attempt KB resolution using RAG ────────────────────────────────
   let knowledgeBase: string;
@@ -224,25 +244,32 @@ export async function runProcessTicket({
     );
 
     if (!contextText) {
-      console.info(`[process-ticket] No relevant KB chunks found for ${ticketId}, escalating to OPEN.`);
+      ragRetrievals.inc({ result: "miss" });
+      log.info({ ticketId }, "no KB chunk cleared the similarity floor, escalating to OPEN");
       await escalateToOpen(ticketId, aiAgent?.id);
+      recordOutcome("escalated", createdAt);
       return;
     }
 
-    console.info(
-      `[process-ticket] Retrieved ${chunks.length} chunk(s) for ${ticketId}: ` +
-        chunks
-          .map((c) => `${c.id}(sim=${c.similarity.toFixed(3)},rrf=${c.score.toFixed(4)})`)
-          .join(", "),
+    ragRetrievals.inc({ result: "hit" });
+    log.info(
+      {
+        ticketId,
+        chunks: chunks.map((c) => ({
+          id: c.id,
+          similarity: Number(c.similarity.toFixed(3)),
+          rrf: Number(c.score.toFixed(4)),
+        })),
+      },
+      "knowledge retrieved",
     );
 
     knowledgeBase = contextText;
   } catch (err) {
-    console.warn(
-      `[process-ticket] RAG retrieval failed for ${ticketId}, escalating to OPEN:`,
-      err,
-    );
+    ragRetrievals.inc({ result: "error" });
+    log.warn({ ticketId, err }, "RAG retrieval failed, escalating to OPEN");
     await escalateToOpen(ticketId, aiAgent?.id);
+    recordOutcome("escalated", createdAt);
     return;
   }
 
@@ -302,22 +329,19 @@ Do not include any explanation outside the JSON.`,
       aiReply = parsed.data.reply;
 
       if (resolved && aiReply && aiReply.length > FIELD_LIMITS.body) {
-        console.warn(
-          `[process-ticket] AI reply for ${ticketId} exceeds ${FIELD_LIMITS.body} characters, escalating instead of storing it`,
+        log.warn(
+          { ticketId, limit: FIELD_LIMITS.body, length: aiReply.length },
+          "AI reply exceeds the body limit, escalating instead of storing it",
         );
         resolved = false;
         aiReply = undefined;
       }
     } else {
-      console.warn(
-        `[process-ticket] Unexpected resolution response for ${ticketId}: ${resolveText}`,
-      );
+      log.warn({ ticketId, response: resolveText }, "unexpected resolution response");
     }
   } catch (err) {
-    console.warn(
-      `[process-ticket] Resolution AI call failed for ${ticketId}, escalating to OPEN:`,
-      err,
-    );
+    aiProviderErrors.inc({ operation: "resolve" });
+    log.warn({ ticketId, err }, "resolution AI call failed, escalating to OPEN");
   }
 
   if (resolved && aiReply) {
@@ -344,9 +368,8 @@ Do not include any explanation outside the JSON.`,
       // Not atomic with the create above — sweepStaleTickets covers the crash window.
       await escalateToOpen(ticketId, aiAgent?.id);
 
-      console.info(
-        `[process-ticket] Ticket ${ticketId} has an AI draft awaiting agent approval (email-sourced)`,
-      );
+      recordOutcome("awaiting_approval", createdAt);
+      log.info({ ticketId }, "AI draft awaiting agent approval (email-sourced)");
     } else {
       await prisma.$transaction([
         prisma.reply.create({
@@ -364,16 +387,14 @@ Do not include any explanation outside the JSON.`,
         }),
       ]);
 
-      console.info(
-        `[process-ticket] Ticket ${ticketId} auto-resolved by AI ✓`,
-      );
+      recordOutcome("resolved", createdAt);
+      log.info({ ticketId }, "ticket auto-resolved by AI");
     }
   } else {
     await escalateToOpen(ticketId, aiAgent?.id);
 
-    console.info(
-      `[process-ticket] Ticket ${ticketId} escalated to OPEN (AI could not resolve)`,
-    );
+    recordOutcome("escalated", createdAt);
+    log.info({ ticketId }, "ticket escalated to OPEN (AI could not resolve)");
   }
 }
 

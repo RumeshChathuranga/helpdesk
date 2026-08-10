@@ -4,6 +4,9 @@ import { prisma } from "../lib/prisma.js";
 import { boss } from "../lib/boss.js";
 import { chunkText } from "../lib/chunkText.js";
 import { embedTexts, getTokenCounter } from "../lib/embeddings.js";
+import { childLogger } from "../lib/logger.js";
+
+const log = childLogger("embed-document");
 
 // ─── Job contract ─────────────────────────────────────────────────────────────
 
@@ -30,7 +33,7 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
   });
 
   if (!document) {
-    console.warn(`[embed-document] Document ${documentId} no longer exists, skipping`);
+    log.warn({ documentId }, "document no longer exists, skipping");
     return;
   }
 
@@ -52,7 +55,7 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
           data: { status: KnowledgeStatus.READY, chunkCount: 0, error: null },
         }),
       ]);
-      console.warn(`[embed-document] Document ${documentId} produced no chunks`);
+      log.warn({ documentId }, "document produced no chunks");
       return;
     }
 
@@ -79,9 +82,7 @@ export async function runEmbedDocument(documentId: string): Promise<void> {
       }),
     ]);
 
-    console.info(
-      `[embed-document] Document ${documentId} embedded into ${chunks.length} chunk(s)`,
-    );
+    log.info({ documentId, chunkCount: chunks.length }, "document embedded");
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await prisma.knowledgeDocument.update({
@@ -105,19 +106,19 @@ export async function registerEmbedDocumentWorker(): Promise<void> {
     EMBED_DOCUMENT_QUEUE,
     async (jobs: Job<EmbedDocumentJobData>[]) => {
       for (const job of jobs) {
-        console.info(`[embed-document] Processing job ${job.id}`);
+        log.info({ jobId: job.id }, "processing job");
         try {
           await runEmbedDocument(job.data.documentId);
-          console.info(`[embed-document] Job ${job.id} completed successfully`);
+          log.info({ jobId: job.id }, "job completed");
         } catch (err) {
-          console.error(`[embed-document] Job ${job.id} failed:`, err);
+          log.error({ jobId: job.id, err }, "job failed");
           throw err;
         }
       }
     },
   );
 
-  console.log(`[pg-boss] Worker registered for queue: ${EMBED_DOCUMENT_QUEUE}`);
+  log.info({ queue: EMBED_DOCUMENT_QUEUE }, "worker registered");
 }
 
 // ─── Enqueue helper ───────────────────────────────────────────────────────────

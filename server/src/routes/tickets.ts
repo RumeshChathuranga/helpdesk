@@ -24,6 +24,10 @@ import { enqueueSendEmail } from "../jobs/sendEmail.js";
 import { validateBody, validateQuery } from "../middleware/validate.js";
 import { AI_AGENT_EMAIL, SUPPORT_EMAIL } from "../config.js";
 import { PROMPT_TAG } from "../lib/ai/promptTags.js";
+import { childLogger } from "../lib/logger.js";
+import { withAiErrorMetric } from "../lib/metrics.js";
+
+const log = childLogger("tickets");
 
 function parseRouteId(
   id: string | string[] | undefined,
@@ -214,7 +218,7 @@ ticketsRouter.post("/:id/replies", requireAgent, validateBody(createReplyBodySch
   } catch (err) {
     // Same posture as ticket creation: never lose the reply because the
     // queue is down — record it as failed so the agent can retry.
-    console.error(`Failed to enqueue send-email job for reply ${reply.id}:`, err);
+    log.error({ replyId: reply.id, err }, "failed to enqueue send-email job");
     const updated = await prisma.reply.update({
       where: { id: reply.id },
       data: {
@@ -296,7 +300,7 @@ ticketsRouter.post(
     try {
       await enqueueSendEmail({ replyId });
     } catch (err) {
-      console.error(`Failed to enqueue send-email job for reply ${replyId}:`, err);
+      log.error({ replyId, err }, "failed to enqueue send-email job");
       const failed = await prisma.reply.update({
         where: { id: replyId },
         data: {
@@ -369,7 +373,7 @@ ticketsRouter.post("/:id/replies/:replyId/retry-send", requireAgent, async (req,
   try {
     await enqueueSendEmail({ replyId });
   } catch (err) {
-    console.error(`Failed to enqueue send-email job for reply ${replyId}:`, err);
+    log.error({ replyId, err }, "failed to enqueue send-email job");
     const failed = await prisma.reply.update({
       where: { id: replyId },
       data: {
@@ -427,9 +431,10 @@ ticketsRouter.post("/:id/polish-reply", requireAgent, validateBody(polishReplyBo
     ? ticket.fromName.trim().split(" ")[0] // first name only
     : "there";
 
-  const { text } = await generateText({
-    model,
-    system: `You are a professional ${PROMPT_TAG.polish}. Your job is to polish and improve agent reply drafts while keeping the same intent and tone.
+  const { text } = await withAiErrorMetric("polish", () =>
+    generateText({
+      model,
+      system: `You are a professional ${PROMPT_TAG.polish}. Your job is to polish and improve agent reply drafts while keeping the same intent and tone.
 Guidelines:
 - Fix grammar, spelling, and punctuation errors
 - Make the language clearer and more professional
@@ -445,14 +450,15 @@ ${agentName}
 ${agentEmail}
 
 - Return ONLY the polished reply text (greeting + body + sign-off), no explanations or meta-commentary`,
-    prompt: `Ticket subject: ${ticket.subject}
+      prompt: `Ticket subject: ${ticket.subject}
 
 Original ticket message:
 ${ticket.body}
 
 Agent's draft reply to polish:
 ${draft}`,
-  });
+    }),
+  );
 
   res.json({ polished: text });
 });
@@ -501,15 +507,17 @@ ${ticket.body}
 
 ${conversationHistory ? `Conversation history:\n${conversationHistory}` : "No replies yet."}`;
 
-  const { text } = await generateText({
-    model,
-    system: `You are a concise ${PROMPT_TAG.summarize}. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
+  const { text } = await withAiErrorMetric("summarize", () =>
+    generateText({
+      model,
+      system: `You are a concise ${PROMPT_TAG.summarize}. Summarize the support ticket and its conversation history in 3-5 bullet points. Focus on:
 - The requester's core issue or request
 - Key actions taken or proposed by the help desk
 - Current status or outstanding next steps
 Be concise and factual. Use plain text bullet points starting with "•".`,
-    prompt,
-  });
+      prompt,
+    }),
+  );
 
   const summary = sanitizePlainText(text);
 
@@ -547,8 +555,9 @@ ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), asyn
     if (aiAgent) {
       finalAssignedToId = aiAgent.id;
     } else {
-      console.warn(
-        `[tickets] AI agent user not found for email ${AI_AGENT_EMAIL} — new ticket will be created unassigned`,
+      log.warn(
+        { aiAgentEmail: AI_AGENT_EMAIL },
+        "AI agent user not found — new ticket will be created unassigned",
       );
     }
   }
@@ -574,7 +583,7 @@ ticketsRouter.post("/", requireAgent, validateBody(createTicketBodySchema), asyn
   try {
     await enqueueProcessTicket({ ticketId: ticket.id, subject, body });
   } catch (err) {
-    console.error(`Failed to enqueue process-ticket job for ${ticket.id}:`, err);
+    log.error({ ticketId: ticket.id, err }, "failed to enqueue process-ticket job");
     await prisma.ticket.update({
       where: { id: ticket.id },
       data: { status: "OPEN" },
