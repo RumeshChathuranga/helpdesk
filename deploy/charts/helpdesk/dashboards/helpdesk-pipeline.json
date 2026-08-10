@@ -1,0 +1,324 @@
+{
+  "uid": "helpdesk-pipeline",
+  "title": "Helpdesk — ticket pipeline",
+  "description": "What fraction of tickets the AI resolves without a human, and whether the pipeline behind that number is keeping up.",
+  "tags": ["helpdesk"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "editable": true,
+  "time": { "from": "now-6h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "prom",
+        "label": "Prometheus",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "loki",
+        "label": "Loki",
+        "type": "datasource",
+        "query": "loki",
+        "current": {},
+        "hide": 0
+      },
+      {
+        "name": "namespace",
+        "label": "Namespace",
+        "type": "query",
+        "datasource": { "type": "prometheus", "uid": "${prom}" },
+        "query": "label_values(helpdesk_tickets_processed_total, namespace)",
+        "refresh": 1,
+        "current": {},
+        "hide": 0
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "AI auto-resolve rate",
+      "description": "Tickets the AI answered without a human, over the dashboard's time range. `awaiting_approval` is excluded — a draft a human still has to approve is not an auto-resolution.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "100 * sum(increase(helpdesk_tickets_processed_total{namespace=\"$namespace\", outcome=\"resolved\"}[$__range])) / clamp_min(sum(increase(helpdesk_tickets_processed_total{namespace=\"$namespace\"}[$__range])), 1)",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "green", "value": 25 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Drafts awaiting approval",
+      "description": "Email-sourced tickets where the AI wrote a reply that a human must approve before it leaves the building.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum(increase(helpdesk_tickets_processed_total{namespace=\"$namespace\", outcome=\"awaiting_approval\"}[$__range]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "decimals": 0, "color": { "mode": "fixed", "fixedColor": "blue" } },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Stale tickets swept",
+      "description": "Must be zero. Any other value means the primary pipeline dropped a ticket and the safety-net sweeper had to rescue it — a customer waited 15 minutes on an invisible ticket.",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum(increase(helpdesk_stale_tickets_swept_total{namespace=\"$namespace\"}[$__range]))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Pipeline p95",
+      "description": "Ticket creation to a terminal outcome, so it includes time spent queued as well as the two LLM round trips.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(helpdesk_ticket_pipeline_duration_seconds_bucket{namespace=\"$namespace\"}[$__rate_interval])))",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 60 },
+              { "color": "red", "value": 120 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Ticket outcomes",
+      "description": "Every terminal path out of the pipeline. A cliff in `resolved` with a matching rise in `escalated` is the knowledge base or the provider failing, not a traffic change.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{outcome}}",
+          "expr": "sum by (outcome) (rate(helpdesk_tickets_processed_total{namespace=\"$namespace\"}[$__rate_interval])) * 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "fillOpacity": 25, "stacking": { "mode": "normal" }, "lineWidth": 1 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "resolved" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "escalated" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "failed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "pg-boss queue depth",
+      "description": "Jobs waiting versus jobs in flight. Rising `ready` with flat `active` means the workers are the bottleneck — this is the correct autoscaling signal for the worker deployment, not CPU.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{queue}} — {{state}}",
+          "expr": "max by (queue, state) (helpdesk_pgboss_queue_depth{namespace=\"$namespace\", state=~\"ready|active\"})"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Pipeline latency",
+      "description": "p50 and p95 of the end-to-end ticket pipeline, split by outcome.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "p50 {{outcome}}",
+          "expr": "histogram_quantile(0.50, sum by (le, outcome) (rate(helpdesk_ticket_pipeline_duration_seconds_bucket{namespace=\"$namespace\"}[$__rate_interval])))"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "legendFormat": "p95 {{outcome}}",
+          "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(helpdesk_ticket_pipeline_duration_seconds_bucket{namespace=\"$namespace\"}[$__rate_interval])))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "AI provider errors and RAG misses",
+      "description": "A RAG miss is normal — it means nothing in the knowledge base cleared the similarity floor, so the ticket goes to a human by design. Provider errors are not normal.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "provider error — {{operation}}",
+          "expr": "sum by (operation) (rate(helpdesk_ai_provider_errors_total{namespace=\"$namespace\"}[$__rate_interval])) * 60"
+        },
+        {
+          "refId": "B",
+          "editorMode": "code",
+          "legendFormat": "rag {{result}}",
+          "expr": "sum by (result) (rate(helpdesk_rag_retrievals_total{namespace=\"$namespace\"}[$__rate_interval])) * 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "API requests by status",
+      "description": "Health probes are excluded at the source — the metrics middleware is mounted after the health router — so this is real agent traffic.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 21 },
+      "datasource": { "type": "prometheus", "uid": "${prom}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "legendFormat": "{{status_code}}",
+          "expr": "sum by (status_code) (rate(http_request_duration_seconds_count{namespace=\"$namespace\"}[$__rate_interval]))"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 25, "stacking": { "mode": "normal" }, "lineWidth": 1 } },
+        "overrides": []
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Warnings and errors",
+      "description": "Structured pino output. `level` and `subsystem` are real Loki labels because Alloy parses the JSON at ingest, so this is a label filter rather than a text search.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 21 },
+      "datasource": { "type": "loki", "uid": "${loki}" },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "{namespace=\"$namespace\", level=~\"warn|error|fatal\"}"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ]
+}

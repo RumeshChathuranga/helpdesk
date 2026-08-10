@@ -27,6 +27,18 @@ Migrations ran as a pre-install/pre-upgrade hook, before any pod above started:
   kubectl get hpa -n {{ .Release.Namespace }}
 {{- end }}
 
+{{ if .Values.metrics.enabled -}}
+Metrics are served on port {{ .Values.metrics.port }}, which the Ingress does not
+route — only Prometheus, from the {{ .Values.networkPolicy.monitoringNamespace }} namespace, can reach it:
+
+  kubectl port-forward -n {{ .Release.Namespace }} deploy/{{ include "helpdesk.fullname" . }}-worker {{ .Values.metrics.port }}:{{ .Values.metrics.port }}
+  curl -s localhost:{{ .Values.metrics.port }}/metrics | grep ^helpdesk_
+{{ if .Values.metrics.podMonitor.enabled -}}
+The PodMonitor needs the Prometheus Operator CRDs. If `helm install` failed on an
+unknown kind, install kube-prometheus-stack first or set metrics.podMonitor.enabled=false.
+{{- end }}
+{{- end }}
+
 Reminder: no seed Job runs here. Until a User row matching AI_AGENT_EMAIL
 ({{ .Values.env.AI_AGENT_EMAIL }}) exists, ticket processing cannot assign a
 ticket. Seed once with:

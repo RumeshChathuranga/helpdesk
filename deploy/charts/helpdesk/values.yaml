@@ -45,6 +45,9 @@ env:
   SHUTDOWN_DRAIN_MS: "5000"
   SHUTDOWN_JOB_TIMEOUT_MS: "25000"
   SHUTDOWN_TIMEOUT_MS: "30000"
+  # One JSON object per line on stdout. Promtail ships it; "debug" here would
+  # multiply Loki volume for no operational gain.
+  LOG_LEVEL: info
 
 # Applied to every pod. Matches the image's USER bun (uid 1000).
 podSecurityContext:
@@ -138,6 +141,41 @@ probes:
     timeoutSeconds: 3
     failureThreshold: 3
 
+metrics:
+  enabled: true
+  # A port of its own, not a path on the API port. The Ingress routes only the
+  # API port, so /metrics can never be fetched from outside the cluster — and
+  # the worker, which serves no API, still gets a scrape target.
+  port: 9464
+  podMonitor:
+    # Needs the Prometheus Operator CRDs (kube-prometheus-stack). Off in an
+    # environment without them, or `helm install` fails on an unknown kind.
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 10s
+    # kube-prometheus-stack's default Prometheus only selects objects carrying
+    # its own release label. Wrong value here = a PodMonitor nothing reads.
+    additionalLabels:
+      release: kube-prometheus-stack
+  dashboard:
+    # Rendered into a ConfigMap from dashboards/helpdesk-pipeline.json. Grafana's
+    # sidecar picks it up by this label, so no Grafana API call and no manual import.
+    enabled: true
+    label: grafana_dashboard
+  prometheusRule:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack
+    # Thresholds live here so an environment can loosen them without editing
+    # PromQL. See templates/prometheusrule.yaml for what each one guards.
+    thresholds:
+      queueDepthWarning: 25
+      queueDepthMinutes: 10
+      apiErrorRatePercent: 5
+      apiLatencySeconds: 2
+      pipelineLatencySeconds: 120
+      aiErrorsPerMinute: 1
+
 service:
   type: ClusterIP
   port: 80
@@ -165,6 +203,9 @@ networkPolicy:
   enabled: true
   # Namespace Traefik runs in. k3s ships it in kube-system.
   ingressControllerNamespace: kube-system
+  # Where Prometheus runs. Without this the deny-all policy silently blackholes
+  # every scrape and the targets show up "context deadline exceeded".
+  monitoringNamespace: monitoring
   # 443 for GitHub Models and Sentry, 465 for SMTP. No huggingface.co egress is
   # needed — the MiniLM weights are baked into the image.
   egressPorts: [443, 465]

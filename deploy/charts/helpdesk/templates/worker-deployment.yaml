@@ -50,6 +50,7 @@ spec:
             - name: http
               containerPort: {{ .Values.worker.port }}
               protocol: TCP
+            {{- include "helpdesk.metricsPort" . | nindent 12 }}
           envFrom:
             {{- include "helpdesk.envFrom" . | nindent 12 }}
           env:
@@ -58,6 +59,7 @@ spec:
             - name: PORT
               value: {{ .Values.worker.port | quote }}
             {{- include "helpdesk.databaseEnv" . | nindent 12 }}
+            {{- include "helpdesk.metricsEnv" . | nindent 12 }}
           {{- include "helpdesk.probes" (dict "root" $) | nindent 10 }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

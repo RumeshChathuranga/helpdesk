@@ -1,0 +1,16 @@
+{{- if and .Values.metrics.enabled .Values.metrics.dashboard.enabled }}
+# The dashboard ships with the app, not with the monitoring stack. It draws
+# metric names this chart's pods emit, so the two have to change in the same
+# commit or the panels quietly go blank. Grafana's sidecar watches every
+# namespace for this label and loads whatever it finds.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "helpdesk.fullname" . }}-dashboard
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+    {{ .Values.metrics.dashboard.label }}: "1"
+data:
+  helpdesk-pipeline.json: |-
+    {{- .Files.Get "dashboards/helpdesk-pipeline.json" | nindent 4 }}
+{{- end }}

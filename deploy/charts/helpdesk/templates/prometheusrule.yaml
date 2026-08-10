@@ -1,0 +1,148 @@
+{{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
+{{- $t := .Values.metrics.prometheusRule.thresholds }}
+# Alerts ship with the app, not with the monitoring stack, because they encode
+# what this application considers broken. Moving them into kube-prometheus-stack
+# would mean a chart the app team doesn't own decides when the app is unhealthy.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "helpdesk.fullname" . }}
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: helpdesk.pipeline
+      rules:
+        # The single most important alert here. sweepStaleTickets only ever
+        # touches a ticket the primary pipeline abandoned, and an abandoned
+        # ticket is invisible to agents because the list filters NEW/PROCESSING.
+        # So the sweeper working is not good news — it is proof of a silent
+        # failure that a customer is currently waiting on.
+        - alert: HelpdeskStaleTicketsSwept
+          expr: increase(helpdesk_stale_tickets_swept_total[15m]) > 0
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Stale tickets had to be rescued by the sweeper"
+            description: >-
+              {{ "{{ $value | printf \"%.0f\" }}" }} ticket(s) sat in NEW/PROCESSING past the
+              15-minute cutoff and were forced to OPEN. The process-ticket worker
+              dropped them. Check worker logs and the process-ticket queue depth.
+
+        - alert: HelpdeskTicketPipelineFailing
+          expr: increase(helpdesk_tickets_processed_total{outcome="failed"}[10m]) > 0
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: "process-ticket jobs are failing outright"
+            description: >-
+              The worker's top-level handler caught an unhandled failure and
+              forced the ticket OPEN. Most often a missing GITHUB_MODELS_TOKEN
+              or an unreachable AI provider.
+
+        - alert: HelpdeskQueueBacklog
+          expr: max by (queue) (helpdesk_pgboss_queue_depth{state="ready"}) > {{ $t.queueDepthWarning }}
+          for: {{ $t.queueDepthMinutes }}m
+          labels:
+            severity: warning
+          annotations:
+            summary: "pg-boss queue {{ "{{ $labels.queue }}" }} is backing up"
+            description: >-
+              {{ "{{ $value | printf \"%.0f\" }}" }} jobs are ready and unclaimed on
+              {{ "{{ $labels.queue }}" }}. Workers are not keeping up — scale the worker
+              deployment or check whether the AI provider is rate-limiting.
+
+        - alert: HelpdeskAiProviderErrors
+          expr: sum(rate(helpdesk_ai_provider_errors_total[5m])) * 60 > {{ $t.aiErrorsPerMinute }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The AI provider is returning errors"
+            description: >-
+              Classification, resolution, summarize or polish calls are failing.
+              Tickets still reach a human — classification degrades to OTHER and
+              resolution escalates — so this is a warning, not an outage.
+
+        # Every ticket escalating is what a broken knowledge base or a dead
+        # provider looks like from the outside: nothing errors, the AI just
+        # stops answering anything.
+        - alert: HelpdeskNoAutoResolutions
+          expr: >-
+            sum(increase(helpdesk_tickets_processed_total[1h])) > 5
+            and
+            sum(increase(helpdesk_tickets_processed_total{outcome=~"resolved|awaiting_approval"}[1h])) == 0
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "The AI has resolved nothing for an hour"
+            description: >-
+              Tickets are flowing but every one escalated. Check the knowledge
+              base is populated and embedded, and that RAG_SIMILARITY_THRESHOLD
+              has not been raised past what the corpus can clear.
+
+        - alert: HelpdeskPipelineSlow
+          expr: >-
+            histogram_quantile(0.95,
+              sum by (le) (rate(helpdesk_ticket_pipeline_duration_seconds_bucket[15m]))
+            ) > {{ $t.pipelineLatencySeconds }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Ticket pipeline p95 is above {{ $t.pipelineLatencySeconds }}s"
+            description: >-
+              Measured from ticket creation, so it includes queue wait as well as
+              the two LLM round trips. A rising p95 with a flat queue depth points
+              at the provider; a rising p95 with a rising queue depth points at
+              worker capacity.
+
+        - alert: HelpdeskEmailDeliveryFailing
+          expr: increase(helpdesk_emails_sent_total{outcome="failed"}[15m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outbound replies are failing to send"
+            description: >-
+              An approved reply could not be delivered. The ticket stays OPEN by
+              design — it only resolves once the customer has actually been
+              emailed — so this is a customer waiting, not just a log line.
+
+    - name: helpdesk.api
+      rules:
+        - alert: HelpdeskApiHighErrorRate
+          expr: >-
+            100 * sum(rate(http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_request_duration_seconds_count[5m])), 0.001)
+            > {{ $t.apiErrorRatePercent }}
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Over {{ $t.apiErrorRatePercent }}% of API requests are 5xx"
+            description: >-
+              clamp_min keeps this from dividing by zero on an idle cluster,
+              which would otherwise page every night.
+
+        - alert: HelpdeskApiHighLatency
+          expr: >-
+            histogram_quantile(0.95,
+              sum by (le) (rate(http_request_duration_seconds_bucket[5m]))
+            ) > {{ $t.apiLatencySeconds }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "API p95 latency is above {{ $t.apiLatencySeconds }}s"
+            description: >-
+              Health probes are excluded from these metrics, so this is real
+              agent-facing traffic. Suspect the database or the summarize/polish
+              routes, which call the AI provider synchronously.
+{{- end }}

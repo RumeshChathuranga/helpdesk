@@ -57,6 +57,31 @@ spec:
       ports:
         - port: http
           protocol: TCP
+{{- if .Values.metrics.enabled }}
+---
+# Both components, not just the API: the worker exposes no Service but is the
+# only pod that knows the queue depth, so a policy that forgot it would leave
+# the most important metric unscrapable.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "helpdesk.fullname" . }}-metrics-ingress
+  labels:
+    {{- include "helpdesk.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- $selector | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.networkPolicy.monitoringNamespace }}
+      ports:
+        - port: metrics
+          protocol: TCP
+{{- end }}
 {{- with .Values.networkPolicy.probeSourceCIDRs }}
 ---
 # Kubelet probes originate from the node, not from a pod, so whether a

@@ -79,6 +79,28 @@ ingress:
     # alb.ingress.kubernetes.io/certificate-arn: <ACM_CERTIFICATE_ARN>
   tls: []
 
+metrics:
+  enabled: true
+  podMonitor:
+    enabled: true
+    # The prod stack is a separate Argo CD Application, so its Helm release name
+    # — and therefore the label its Prometheus looks for — carries the -prod suffix.
+    additionalLabels:
+      release: kube-prometheus-stack-prod
+  prometheusRule:
+    enabled: true
+    additionalLabels:
+      release: kube-prometheus-stack-prod
+    # Tighter than dev: two workers and real traffic mean a backlog of 25 is a
+    # genuine problem here, where on a laptop it is one burst of seeding.
+    thresholds:
+      queueDepthWarning: 25
+      queueDepthMinutes: 5
+      apiErrorRatePercent: 2
+      apiLatencySeconds: 1.5
+      pipelineLatencySeconds: 90
+      aiErrorsPerMinute: 1
+
 networkPolicy:
   enabled: true
   # The AWS Load Balancer Controller runs here; in ip target mode the ALB's own

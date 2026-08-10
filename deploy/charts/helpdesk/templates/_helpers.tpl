@@ -64,6 +64,27 @@ values, a shell, or git.
 {{- end }}
 
 {{/*
+Scrape port and the env that makes the app bind it. Both deployments include
+this, so the PodMonitor can select one named port across api and worker.
+*/}}
+{{- define "helpdesk.metricsPort" -}}
+{{- if .Values.metrics.enabled }}
+- name: metrics
+  containerPort: {{ .Values.metrics.port }}
+  protocol: TCP
+{{- end }}
+{{- end }}
+
+{{- define "helpdesk.metricsEnv" -}}
+- name: METRICS_ENABLED
+  value: {{ .Values.metrics.enabled | quote }}
+{{- if .Values.metrics.enabled }}
+- name: METRICS_PORT
+  value: {{ .Values.metrics.port | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
 Probes, parameterised by port. Liveness deliberately hits /live, which never
 touches the database — a slow Postgres must not get the process killed.
 */}}
