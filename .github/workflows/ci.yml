@@ -153,6 +153,28 @@ jobs:
           curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin kubeconform
 
+      # kubeconform checks the PrometheusRule's *shape*; only promtool checks
+      # that the PromQL inside it parses. A typo'd expression otherwise reaches
+      # the cluster and silently never fires.
+      - name: Check alert rules with promtool
+        run: |
+          curl -sSfL https://github.com/prometheus/prometheus/releases/download/v3.13.2/prometheus-3.13.2.linux-amd64.tar.gz \
+            | tar -xz --strip-components=1 -C /usr/local/bin prometheus-3.13.2.linux-amd64/promtool
+          # Not into rendered/ — a bare rule group has no `kind`, and the
+          # kubeconform step below scans that whole directory.
+          mkdir -p rules
+          for env in dev prod; do
+            python3 -c "
+          import sys, yaml
+          docs = [d for d in yaml.safe_load_all(open(sys.argv[1])) if d]
+          rules = [d for d in docs if d['kind'] == 'PrometheusRule']
+          if not rules:
+              sys.exit('No PrometheusRule rendered for ' + sys.argv[1])
+          yaml.safe_dump(rules[0]['spec'], open(sys.argv[2], 'w'), sort_keys=False)
+          " "rendered/app-$env.yaml" "rules/$env.yaml"
+            promtool check rules "rules/$env.yaml"
+          done
+
       # CRD-backed kinds (Cluster, SealedSecret, Application, ExternalSecret)
       # aren't in the upstream schema set, hence the CRDs-catalog fallback.
       - name: Validate rendered manifests and the Argo CD tree
