@@ -1,0 +1,75 @@
+# PROD — written in Phase 4, never applied.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki-prod
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 6.55.0
+    helm:
+      valuesObject:
+        # Monolithic single-binary, not the microservices topology. One node,
+        # one tenant, one operator — the read/write/backend split would be three
+        # more things to keep alive for no gain at this size.
+        deploymentMode: SingleBinary
+        loki:
+          auth_enabled: false
+          commonConfig:
+            # Anything above 1 makes an ingester wait for replicas that do not
+            # exist, and every write times out.
+            replication_factor: 1
+          # Still filesystem. S3-backed storage is Phase 5 work: it needs a
+          # bucket and an IRSA role that do not exist until Terraform runs.
+          storage:
+            type: filesystem
+          schemaConfig:
+            configs:
+              - from: "2024-04-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index:
+                  prefix: index_
+                  period: 24h
+          limits_config:
+            # 30 days, matching Prometheus retention — a log you cannot
+            # correlate with a metric is much less useful.
+            retention_period: 720h
+        singleBinary:
+          replicas: 1
+          persistence:
+            enabled: true
+            size: 100Gi
+        read:
+          replicas: 0
+        write:
+          replicas: 0
+        backend:
+          replicas: 0
+        # Memcached tiers in front of a laptop-sized filesystem store would cost
+        # more memory than they save.
+        chunksCache:
+          enabled: false
+        resultsCache:
+          enabled: false
+        lokiCanary:
+          enabled: false
+        test:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

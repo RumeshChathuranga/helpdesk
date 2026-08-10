@@ -1,0 +1,125 @@
+# PROD — written in Phase 4, never applied. Phase 5 stands up the EKS cluster
+# this targets. Retention and storage are sized for a real cluster; the dev
+# overlay in ../dev is what runs on a laptop.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  # The release name is what kube-prometheus-stack stamps on its own objects,
+  # and it is the value deploy/charts/helpdesk/values.yaml puts in the
+  # `release:` label on the PodMonitor. Renaming this app breaks that match.
+  name: kube-prometheus-stack-prod
+  namespace: argocd
+  annotations:
+    # Wave 5 — before the helpdesk app at wave 40, because that chart ships a
+    # PodMonitor and a PrometheusRule, and both are CRDs installed here.
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: helpdesk
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 88.2.0
+    helm:
+      valuesObject:
+        crds:
+          enabled: true
+
+        prometheus:
+          prometheusSpec:
+            retention: 30d
+            scrapeInterval: 30s
+            # The chart defaults these to true, which restricts Prometheus to
+            # objects labelled with its own release name. Left on, a PodMonitor
+            # with a typo'd label is silently ignored — the single most common
+            # "why is my target missing" in this stack. Off means: select every
+            # PodMonitor and rule in the cluster.
+            podMonitorSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            probeSelectorNilUsesHelmValues: false
+            scrapeConfigSelectorNilUsesHelmValues: false
+            resources:
+              requests:
+                cpu: 100m
+                memory: 512Mi
+              limits:
+                memory: 2Gi
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 50Gi
+
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests:
+                cpu: 10m
+                memory: 64Mi
+              limits:
+                memory: 128Mi
+
+        grafana:
+          # In prod this Secret comes from AWS Secrets Manager via the
+          # ExternalSecret in deploy/envs/prod/secrets/, not from kubectl.
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              # ALL, because the helpdesk dashboard ships as a ConfigMap in the
+              # helpdesk namespace — versioned with the code that emits the
+              # metrics it draws, not with the monitoring stack.
+              searchNamespace: ALL
+          additionalDataSources:
+            - name: Loki
+              type: loki
+              access: proxy
+              url: http://loki-gateway.monitoring.svc.cluster.local
+              jsonData:
+                maxLines: 1000
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+
+        # EKS hides the control plane entirely, so the same four scrape targets
+        # are unreachable here for a different reason than on k3s. Same fix.
+        kubeEtcd:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeProxy:
+          enabled: false
+
+        kube-state-metrics:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      # The Prometheus Operator CRDs carry annotations far past the 262144-byte
+      # limit on the last-applied-configuration annotation. Client-side apply
+      # fails on them outright; server-side apply is the supported path.
+      - ServerSideApply=true

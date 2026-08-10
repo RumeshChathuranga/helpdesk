@@ -16,6 +16,8 @@ spec:
     - https://bitnami.github.io/sealed-secrets
     - https://cloudnative-pg.github.io/charts
     - https://charts.external-secrets.io
+    - https://prometheus-community.github.io/helm-charts
+    - https://grafana.github.io/helm-charts
 
   destinations:
     # argocd itself: the root app's only output is child Applications.
@@ -29,6 +31,9 @@ spec:
       namespace: sealed-secrets
     - server: https://kubernetes.default.svc
       namespace: external-secrets
+    # Prometheus, Alertmanager, Grafana, Loki and the Alloy log agent.
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
 
   # Cluster-scoped objects are opt-in by kind. This list is exactly what the
   # three operators install — nothing here can create a ClusterRoleBinding for
