@@ -1,7 +1,5 @@
-# The app-of-apps root for k3d. This is the last manual kubectl in the project:
+# App-of-apps root for k3d — last manual kubectl in the project:
 #   kubectl apply -f deploy/argocd/root-dev.yaml
-# Everything under deploy/argocd/apps/dev — operators, secrets, database, app —
-# is created by Argo CD from git after this.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

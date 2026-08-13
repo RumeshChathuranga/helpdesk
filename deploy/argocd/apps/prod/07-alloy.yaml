@@ -13,9 +13,8 @@ spec:
   source:
     repoURL: https://grafana.github.io/helm-charts
     chart: alloy
-    # Grafana Alloy, not Promtail: the Promtail chart is deprecated upstream and
-    # prints a deprecation warning on every sync. Alloy replaces it and does the
-    # same job here — tail every pod log on the node and ship it to Loki.
+    # Alloy, not Promtail — the Promtail chart is deprecated upstream.
+    # Same job here: tail every pod log on the node and ship it to Loki.
     targetRevision: 1.11.1
     helm:
       valuesObject:
@@ -48,9 +47,8 @@ spec:
               discovery.kubernetes "pods" {
                 role = "pod"
 
-                // Only this node's pods. Without the selector every agent in the
-                // DaemonSet lists every pod in the cluster and then discards
-                // almost all of them.
+                // Only this node's pods — without the selector every agent in
+                // the DaemonSet lists the whole cluster and discards most of it.
                 selectors {
                   role  = "pod"
                   field = "spec.nodeName=" + sys.env("NODE_NAME")
@@ -101,9 +99,8 @@ spec:
                 // it so the JSON below sees the application's own output.
                 stage.cri {}
 
-                // Scoped to the app namespace on purpose. Postgres and the
-                // operators do not log JSON, and running a JSON parser over
-                // their output would just produce parse noise.
+                // Scoped to the app namespace — Postgres and the operators
+                // don't log JSON, so parsing their output would just add noise.
                 stage.match {
                   selector = "{namespace=\"helpdesk\"}"
 

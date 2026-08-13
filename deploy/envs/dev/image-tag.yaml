@@ -1,6 +1,4 @@
-# Machine-owned. The bump-dev-tag job in .github/workflows/ci.yml rewrites this
-# after every push to master. Kept apart from values.yaml so an automated
-# rewrite can never reformat a file a human maintains — and so the bump commit
-# is a one-line diff you can read at a glance.
+# Machine-owned — the bump-dev-tag job in ci.yml rewrites this after every
+# push to master. Kept apart from values.yaml so the bump stays a one-line diff.
 image:
   tag: sha-b6422bb2f8eb67b19044d4bd88ef8044645e15eb

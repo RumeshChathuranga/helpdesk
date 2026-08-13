@@ -14,10 +14,8 @@ spec:
     initdb:
       database: {{ .Values.bootstrap.database }}
       owner: {{ .Values.bootstrap.owner }}
-      # Runs as superuser inside the application database. The app's own
-      # migration (20260708000000_init_pgvector) also issues CREATE EXTENSION,
-      # but the CNPG-created owner role is not a superuser and may not be
-      # allowed to — doing it here makes that statement a harmless no-op.
+      # Runs as superuser — the CNPG-created owner role isn't one, so the app's
+      # own CREATE EXTENSION migration would otherwise fail.
       postInitApplicationSQL:
         - CREATE EXTENSION IF NOT EXISTS vector
 

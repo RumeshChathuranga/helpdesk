@@ -7,9 +7,8 @@ metadata:
     {{- include "helpdesk.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
-  # API only. The worker's real scaling signal is pg-boss queue depth, and
-  # that metric doesn't exist until Phase 4 — CPU would be a bad proxy for it,
-  # since a worker blocked on the AI provider is idle but backlogged.
+  # API only — the worker's real scaling signal is pg-boss queue depth, not
+  # CPU, since a worker blocked on the AI provider is idle but backlogged.
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment

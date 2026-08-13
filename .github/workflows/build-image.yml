@@ -18,8 +18,7 @@ on:
         description: sha256 digest of the pushed image (empty if push=false)
         value: ${{ jobs.build.outputs.digest }}
 
-# Documentation/least-privilege — the calling job must grant at least this
-# much, or these steps fail on permissions, not on the build itself.
+# Least-privilege: the calling job must grant at least this much or these steps fail.
 permissions:
   contents: read
   packages: write

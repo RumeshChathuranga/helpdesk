@@ -33,9 +33,8 @@ spec:
       {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      # On SIGTERM the app flips /ready to 503, waits SHUTDOWN_DRAIN_MS for
-      # endpoints to propagate, then closes the listener. That is why there is
-      # no preStop sleep here — the application already does it.
+      # No preStop sleep here — on SIGTERM the app flips /ready to 503, waits
+      # SHUTDOWN_DRAIN_MS, then closes the listener itself.
       terminationGracePeriodSeconds: {{ .Values.api.terminationGracePeriodSeconds }}
       {{- if eq .Values.api.podAntiAffinity "preferred" }}
       affinity:

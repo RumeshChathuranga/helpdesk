@@ -1,12 +1,10 @@
-# PROD — written in Phase 4, never applied. Phase 5 stands up the EKS cluster
-# this targets. Retention and storage are sized for a real cluster; the dev
-# overlay in ../dev is what runs on a laptop.
+# PROD — written in Phase 4, never applied. Sized for the Phase 5 EKS cluster;
+# ../dev is what runs on a laptop.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # The release name is what kube-prometheus-stack stamps on its own objects,
-  # and it is the value deploy/charts/helpdesk/values.yaml puts in the
-  # `release:` label on the PodMonitor. Renaming this app breaks that match.
+  # This name is stamped on the release, and matched by the `release:` label
+  # on our PodMonitor in deploy/charts/helpdesk/values.yaml — don't rename it.
   name: kube-prometheus-stack-prod
   namespace: argocd
   annotations:
@@ -30,11 +28,8 @@ spec:
           prometheusSpec:
             retention: 30d
             scrapeInterval: 30s
-            # The chart defaults these to true, which restricts Prometheus to
-            # objects labelled with its own release name. Left on, a PodMonitor
-            # with a typo'd label is silently ignored — the single most common
-            # "why is my target missing" in this stack. Off means: select every
-            # PodMonitor and rule in the cluster.
+            # Chart defaults these to true, which silently ignores a PodMonitor
+            # with a typo'd release label — off means select everything instead.
             podMonitorSelectorNilUsesHelmValues: false
             serviceMonitorSelectorNilUsesHelmValues: false
             ruleSelectorNilUsesHelmValues: false
@@ -74,9 +69,8 @@ spec:
             dashboards:
               enabled: true
               label: grafana_dashboard
-              # ALL, because the helpdesk dashboard ships as a ConfigMap in the
-              # helpdesk namespace — versioned with the code that emits the
-              # metrics it draws, not with the monitoring stack.
+              # ALL — the helpdesk dashboard ships as a ConfigMap in the
+              # helpdesk namespace, versioned with the code, not the monitoring stack.
               searchNamespace: ALL
           additionalDataSources:
             - name: Loki
@@ -119,7 +113,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # The Prometheus Operator CRDs carry annotations far past the 262144-byte
-      # limit on the last-applied-configuration annotation. Client-side apply
-      # fails on them outright; server-side apply is the supported path.
+      # These CRDs are past the 262144-byte last-applied-configuration limit,
+      # so client-side apply fails outright — server-side apply is required.
       - ServerSideApply=true

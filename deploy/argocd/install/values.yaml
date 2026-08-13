@@ -1,7 +1,5 @@
 # Values for the upstream argo-cd chart (argo/argo-cd 10.3.0, app v3.5.0).
-# The install command is manual — see devops-docs/setup/argocd-bootstrap.md.
-# Argo CD does not manage itself, so committing its configuration is the only
-# thing keeping that config reviewable.
+# Install is manual — see devops-docs/setup/argocd-bootstrap.md.
 global:
   domain: argocd.localtest.me
 

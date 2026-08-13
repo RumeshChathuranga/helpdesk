@@ -1,12 +1,7 @@
-# PROD — written in Phase 3, never applied. Phase 5 stands up the EKS cluster
-# this targets; until then nothing here has been run against a real API server.
-#
-#   helm upgrade --install helpdesk-db deploy/charts/helpdesk-db \
-#     -n helpdesk -f deploy/envs/prod/db-values.yaml
-# In practice Argo CD applies it — see deploy/argocd/apps/prod/30-helpdesk-db.yaml.
+# PROD — written in Phase 3, never applied against the Phase 5 EKS cluster.
+# Applied by Argo CD — see deploy/argocd/apps/prod/30-helpdesk-db.yaml.
 
-# Three instances is the smallest count that survives losing one and still has
-# a quorum. The dev overlay's 1 is the laptop concession, not the default.
+# 3 instances is the smallest count that survives losing one and keeps a quorum.
 instances: 3
 
 storage:

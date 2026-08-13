@@ -4,9 +4,8 @@ metadata:
   name: helpdesk-db-dev
   namespace: argocd
   annotations:
-    # Wave 30 — Argo ships a health check for postgresql.cnpg.io/Cluster, so
-    # wave 40 waits for a database that actually accepts connections, not just
-    # for the object to exist.
+    # Wave 30 — Argo's health check for postgresql.cnpg.io/Cluster makes wave
+    # 40 wait for a database that accepts connections, not just one that exists.
     argocd.argoproj.io/sync-wave: "30"
   finalizers:
     - resources-finalizer.argocd.argoproj.io

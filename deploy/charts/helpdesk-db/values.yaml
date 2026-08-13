@@ -2,9 +2,8 @@
 # app chart's `database.secretName` must match "<name>-app".
 name: helpdesk-db
 
-# CNPG's "standard" operand images bundle pgvector; the "minimal" ones do not.
-# Pinned to 15 to match docker-compose.yml, the CI service container and
-# server/.env.test — the migrations and stored functions are only tested there.
+# "standard" operand images bundle pgvector; "minimal" ones don't.
+# Pinned to 15 to match docker-compose.yml and the CI service container.
 image: ghcr.io/cloudnative-pg/postgresql:15-standard-bookworm
 
 # 1 for a laptop, 3 for real HA. This field is the only thing that changes.

@@ -1,8 +1,7 @@
 {{- if .Values.networkPolicy.enabled }}
 {{- $selector := include "helpdesk.selectorLabels" . }}
-# Scoped to this release's pods rather than the whole namespace on purpose:
-# the CloudNativePG cluster lives here too, and a namespace-wide deny would cut
-# the operator off from its own instances and break replication.
+# Scoped to this release's pods, not the namespace — the CloudNativePG cluster
+# lives here too, and a namespace-wide deny would break its own replication.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -59,9 +58,8 @@ spec:
           protocol: TCP
 {{- if .Values.metrics.enabled }}
 ---
-# Both components, not just the API: the worker exposes no Service but is the
-# only pod that knows the queue depth, so a policy that forgot it would leave
-# the most important metric unscrapable.
+# Both components, not just the API — the worker exposes no Service but is
+# the only pod that knows the queue depth.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -84,9 +82,8 @@ spec:
 {{- end }}
 {{- with .Values.networkPolicy.probeSourceCIDRs }}
 ---
-# Kubelet probes originate from the node, not from a pod, so whether a
-# default-deny ingress rule drops them is CNI-dependent. Set this if pods go
-# NotReady the moment the policy lands.
+# Kubelet probes originate from the node, not a pod, so a default-deny rule
+# may drop them depending on the CNI. Set this if pods go NotReady on apply.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -144,8 +141,7 @@ spec:
   policyTypes: [Egress]
   egress:
     # GitHub Models, Sentry and SMTP. Notably absent: huggingface.co — the
-    # MiniLM weights are baked into the image at /models with
-    # ALLOW_REMOTE_MODELS=false, so the pod never needs to fetch a model.
+    # MiniLM weights are baked into the image, so nothing fetches a model.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0

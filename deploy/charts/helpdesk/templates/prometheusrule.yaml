@@ -1,8 +1,7 @@
 {{- if and .Values.metrics.enabled .Values.metrics.prometheusRule.enabled }}
 {{- $t := .Values.metrics.prometheusRule.thresholds }}
-# Alerts ship with the app, not with the monitoring stack, because they encode
-# what this application considers broken. Moving them into kube-prometheus-stack
-# would mean a chart the app team doesn't own decides when the app is unhealthy.
+# Alerts ship with the app, not the monitoring stack — they encode what this
+# application considers broken, not what a chart the app team doesn't own decides.
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
@@ -16,11 +15,8 @@ spec:
   groups:
     - name: helpdesk.pipeline
       rules:
-        # The single most important alert here. sweepStaleTickets only ever
-        # touches a ticket the primary pipeline abandoned, and an abandoned
-        # ticket is invisible to agents because the list filters NEW/PROCESSING.
-        # So the sweeper working is not good news — it is proof of a silent
-        # failure that a customer is currently waiting on.
+        # sweepStaleTickets only touches tickets the primary pipeline abandoned,
+        # so it firing is proof of a silent failure, not good news.
         - alert: HelpdeskStaleTicketsSwept
           expr: increase(helpdesk_stale_tickets_swept_total[15m]) > 0
           for: 0m
@@ -69,9 +65,8 @@ spec:
               Tickets still reach a human — classification degrades to OTHER and
               resolution escalates — so this is a warning, not an outage.
 
-        # Every ticket escalating is what a broken knowledge base or a dead
-        # provider looks like from the outside: nothing errors, the AI just
-        # stops answering anything.
+        # A broken knowledge base or dead provider looks like this from the
+        # outside: nothing errors, the AI just stops answering anything.
         - alert: HelpdeskNoAutoResolutions
           expr: >-
             sum(increase(helpdesk_tickets_processed_total[1h])) > 5

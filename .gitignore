@@ -19,11 +19,8 @@ e2e/test-results/
 .agents/
 .cursor/
 
-# Personal interview prep notes
+# Personal interview prep notes (audit.md, migration.md, TASKS.md live under interview/notes/)
 interview/
-TASKS.md
-audit.md
 CLAUDE.md
-migration.md
 
 devops-docs/

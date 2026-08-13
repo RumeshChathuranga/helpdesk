@@ -13,9 +13,8 @@ serviceAccount:
   create: true
   name: ""
 
-# Secret created by hand (see devops-docs/setup/helm-install.md) and mounted
-# wholesale with envFrom. Phase 3 replaces it with a SealedSecret of the same
-# name and this chart does not change.
+# Created by hand (see devops-docs/setup/helm-install.md), mounted wholesale
+# with envFrom. Phase 3 replaces it with a same-named SealedSecret.
 existingSecret: helpdesk-secrets
 
 database:
@@ -125,9 +124,8 @@ migrate:
 # Both roles serve these — APP_ROLE=worker still runs createHealthApp().
 probes:
   startup:
-    # boss.start() is awaited before app.listen(), so a slow Postgres means the
-    # port never binds. This budget (30 x 5s) is what stops the liveness probe
-    # from killing a pod that is still legitimately booting.
+    # boss.start() is awaited before app.listen(), so a slow Postgres delays the
+    # port bind — this 30x5s budget stops liveness from killing a booting pod.
     periodSeconds: 5
     failureThreshold: 30
   liveness:
@@ -143,9 +141,8 @@ probes:
 
 metrics:
   enabled: true
-  # A port of its own, not a path on the API port. The Ingress routes only the
-  # API port, so /metrics can never be fetched from outside the cluster — and
-  # the worker, which serves no API, still gets a scrape target.
+  # A port of its own, not a path on the API port, so /metrics is never
+  # reachable through the Ingress and the worker still gets a scrape target.
   port: 9464
   podMonitor:
     # Needs the Prometheus Operator CRDs (kube-prometheus-stack). Off in an
@@ -210,6 +207,5 @@ networkPolicy:
   # needed — the MiniLM weights are baked into the image.
   egressPorts: [443, 465]
   # Only needed if the CNI drops kubelet probe traffic under a default-deny
-  # ingress rule. Symptom: pods flip to NotReady the moment the policy applies.
-  # k3s node IPs sit on the k3d Docker network, e.g. ["172.18.0.0/16"].
+  # rule (pods flip NotReady). k3s node IPs, e.g. ["172.18.0.0/16"].
   probeSourceCIDRs: []

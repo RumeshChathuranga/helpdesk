@@ -1,10 +1,5 @@
-# k3d overrides. Applied by Argo CD via deploy/argocd/apps/dev/40-helpdesk.yaml;
-# the equivalent by hand is
-#   helm upgrade --install helpdesk deploy/charts/helpdesk -n helpdesk \
-#     -f deploy/envs/dev/values.yaml -f deploy/envs/dev/image-tag.yaml
-#
-# image.tag deliberately lives in image-tag.yaml, not here — CI rewrites that
-# file and nothing else.
+# k3d overrides, applied by Argo CD via deploy/argocd/apps/dev/40-helpdesk.yaml.
+# image.tag deliberately lives in image-tag.yaml, not here — CI rewrites that file only.
 image:
   pullPolicy: IfNotPresent
 

@@ -7,9 +7,8 @@ metadata:
     {{- include "helpdesk.labels" . | nindent 4 }}
     app.kubernetes.io/component: api
 spec:
-  # Voluntary disruptions only — a node drain or cluster upgrade can't take
-  # the last API pod. Deliberately not applied to the worker: minAvailable 1
-  # against a single replica would block node drains forever.
+  # Not applied to the worker — minAvailable 1 against a single replica
+  # would block node drains forever.
   minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
   selector:
     matchLabels:

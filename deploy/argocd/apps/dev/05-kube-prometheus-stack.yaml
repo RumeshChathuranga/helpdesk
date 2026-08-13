@@ -1,9 +1,8 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  # The release name is what kube-prometheus-stack stamps on its own objects,
-  # and it is the value deploy/charts/helpdesk/values.yaml puts in the
-  # `release:` label on the PodMonitor. Renaming this app breaks that match.
+  # This name is stamped on the release, and matched by the `release:` label
+  # on our PodMonitor in deploy/charts/helpdesk/values.yaml — don't rename it.
   name: kube-prometheus-stack
   namespace: argocd
   annotations:
@@ -27,11 +26,8 @@ spec:
           prometheusSpec:
             retention: 7d
             scrapeInterval: 30s
-            # The chart defaults these to true, which restricts Prometheus to
-            # objects labelled with its own release name. Left on, a PodMonitor
-            # with a typo'd label is silently ignored — the single most common
-            # "why is my target missing" in this stack. Off means: select every
-            # PodMonitor and rule in the cluster.
+            # Chart defaults these to true, which silently ignores a PodMonitor
+            # with a typo'd release label — off means select everything instead.
             podMonitorSelectorNilUsesHelmValues: false
             serviceMonitorSelectorNilUsesHelmValues: false
             ruleSelectorNilUsesHelmValues: false
@@ -61,9 +57,8 @@ spec:
                 memory: 128Mi
 
         grafana:
-          # No password in this repo. The setup guide creates this Secret by
-          # hand; until it exists Grafana refuses to start, which is the failure
-          # mode we want over a chart default of "prom-operator".
+          # No password in this repo — the setup guide creates this Secret by
+          # hand, so Grafana refuses to start rather than falling back to a chart default.
           admin:
             existingSecret: grafana-admin
             userKey: admin-user
@@ -72,9 +67,8 @@ spec:
             dashboards:
               enabled: true
               label: grafana_dashboard
-              # ALL, because the helpdesk dashboard ships as a ConfigMap in the
-              # helpdesk namespace — versioned with the code that emits the
-              # metrics it draws, not with the monitoring stack.
+              # ALL — the helpdesk dashboard ships as a ConfigMap in the
+              # helpdesk namespace, versioned with the code, not the monitoring stack.
               searchNamespace: ALL
           additionalDataSources:
             - name: Loki
@@ -90,9 +84,8 @@ spec:
             limits:
               memory: 512Mi
 
-        # k3s runs the control plane as one process and does not expose these on
-        # the ports the chart expects. Left enabled they produce four permanently
-        # firing TargetDown alerts, which trains you to ignore alerts.
+        # k3s runs the control plane as one process, not on the ports this chart
+        # expects — left enabled these produce four permanently firing TargetDown alerts.
         kubeEtcd:
           enabled: false
         kubeControllerManager:
@@ -118,7 +111,6 @@ spec:
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      # The Prometheus Operator CRDs carry annotations far past the 262144-byte
-      # limit on the last-applied-configuration annotation. Client-side apply
-      # fails on them outright; server-side apply is the supported path.
+      # These CRDs are past the 262144-byte last-applied-configuration limit,
+      # so client-side apply fails outright — server-side apply is required.
       - ServerSideApply=true

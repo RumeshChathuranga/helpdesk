@@ -1,9 +1,5 @@
-# PROD — written in Phase 3, never applied. Phase 5 stands up the EKS cluster
-# this targets; until then nothing here has been run against a real API server.
-# Applied by Argo CD via deploy/argocd/apps/prod/40-helpdesk.yaml.
-#
-# image.tag lives in image-tag.yaml alongside this file, so a promotion is a
-# one-line diff in an obvious place.
+# PROD — written in Phase 3, never applied. Applied by Argo CD via
+# deploy/argocd/apps/prod/40-helpdesk.yaml. image.tag lives in image-tag.yaml.
 image:
   pullPolicy: IfNotPresent
 
@@ -38,9 +34,8 @@ api:
       cpu: "1"
       memory: 1Gi
 
-# Two workers, so losing a node does not stop ticket processing entirely. CPU
-# is the wrong scaling signal here (a worker blocked on the AI provider looks
-# idle), which is why there is no worker HPA until Phase 4 has queue depth.
+# Two workers so losing a node doesn't stop processing entirely — no worker
+# HPA yet since CPU is the wrong scaling signal for one blocked on the AI provider.
 worker:
   replicaCount: 2
   resources:

@@ -44,8 +44,7 @@ jobs:
       - uses: actions/checkout@v7
 
       # The server imports generated Prisma types, so tsc needs the client
-      # first; prisma.config.ts only needs DATABASE_URL to be present, not
-      # reachable, for jobs that never touch a real database.
+      # first; DATABASE_URL only needs to be present here, not reachable.
       - uses: ./.github/actions/setup-bun-workspace
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -76,9 +75,8 @@ jobs:
 
     services:
       postgres:
-        # pgvector build of Postgres — the KnowledgeChunk embedding column is
-        # `vector(384)` and migration 20260708000000_init_pgvector runs
-        # `CREATE EXTENSION vector`. Matches docker-compose.yml.
+        # pgvector build — the KnowledgeChunk embedding column is `vector(384)`.
+        # Matches docker-compose.yml.
         image: pgvector/pgvector:pg15
         env:
           POSTGRES_USER: user
@@ -153,15 +151,13 @@ jobs:
           curl -sSfL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz \
             | sudo tar -xz -C /usr/local/bin kubeconform
 
-      # kubeconform checks the PrometheusRule's *shape*; only promtool checks
-      # that the PromQL inside it parses. A typo'd expression otherwise reaches
-      # the cluster and silently never fires.
+      # kubeconform checks the PrometheusRule's shape; only promtool checks
+      # that the PromQL inside it actually parses.
       - name: Check alert rules with promtool
         run: |
           curl -sSfL https://github.com/prometheus/prometheus/releases/download/v3.13.2/prometheus-3.13.2.linux-amd64.tar.gz \
             | tar -xz --strip-components=1 -C /usr/local/bin prometheus-3.13.2.linux-amd64/promtool
-          # Not into rendered/ — a bare rule group has no `kind`, and the
-          # kubeconform step below scans that whole directory.
+          # Not into rendered/ — a bare rule group has no `kind`, and kubeconform scans that dir.
           mkdir -p rules
           for env in dev prod; do
             python3 -c "
@@ -216,10 +212,8 @@ jobs:
       security-events: write
     uses: ./.github/workflows/build-image.yml
     with:
-      # PRs build and scan only — nothing unscanned is ever published.
-      # Only a push to master (not a PR from a fork, which can't be
-      # trusted with packages:write/id-token:write anyway) publishes and
-      # signs.
+      # Only a push to master publishes and signs — a fork PR can't be
+      # trusted with packages:write/id-token:write anyway.
       push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
   # The CI half of GitOps: CI writes the tag into git, Argo CD reads it out of

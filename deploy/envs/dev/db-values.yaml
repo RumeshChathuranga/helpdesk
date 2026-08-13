@@ -1,9 +1,5 @@
-# k3d overrides for the database release:
-#   helm upgrade --install helpdesk-db deploy/charts/helpdesk-db \
-#     -n helpdesk -f deploy/envs/dev/db-values.yaml
-#
-# One instance is a laptop concession, not a recommendation — bumping this to 3
-# is the only change needed for real HA.
+# k3d overrides for the database release. 1 instance is a laptop concession —
+# bumping to 3 is the only change needed for real HA.
 instances: 1
 
 storage:

@@ -1,8 +1,5 @@
-# A Jenkins controller with the Docker CLI baked in, so the Docker
-# Pipeline plugin can drive `agent { docker { ... } }` stages against the
-# host's Docker daemon (mounted in compose.yml). This is
-# Docker-outside-of-Docker — the controller needs the `docker` binary, not
-# its own nested daemon.
+# Docker CLI baked in so the Docker Pipeline plugin can drive `docker { }`
+# stages against the host's daemon (mounted in compose.yml) — Docker-outside-of-Docker.
 FROM jenkins/jenkins:lts-jdk21
 
 USER root
@@ -20,8 +17,7 @@ RUN apt-get update \
 
 USER jenkins
 
-# Baked into the image rather than installed by hand through the setup
-# wizard, so a fresh container is pipeline-ready immediately.
+# Baked in rather than installed by hand, so a fresh container is pipeline-ready.
 RUN jenkins-plugin-cli --plugins \
   workflow-aggregator \
   docker-workflow \

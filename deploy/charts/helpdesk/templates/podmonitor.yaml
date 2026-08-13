@@ -1,8 +1,6 @@
 {{- if and .Values.metrics.enabled .Values.metrics.podMonitor.enabled }}
-# A PodMonitor rather than a ServiceMonitor: the worker has no Service (nothing
-# routes traffic to it), and inventing one purely to be scraped would be a
-# Service that misrepresents what exists. This selects pods directly, so api and
-# worker are covered by one object.
+# PodMonitor, not ServiceMonitor — the worker has no Service, and this
+# selects pods directly so api and worker are covered by one object.
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
@@ -25,9 +23,8 @@ spec:
       interval: {{ .Values.metrics.podMonitor.interval }}
       scrapeTimeout: {{ .Values.metrics.podMonitor.scrapeTimeout }}
       relabelings:
-        # Without this every series from both deployments is indistinguishable
-        # except by pod name, so "API error rate" would silently include the
-        # worker. The component label is what the alerts below split on.
+        # Without this, series from both deployments are indistinguishable
+        # except by pod name — this label is what the alerts below split on.
         - sourceLabels: [__meta_kubernetes_pod_label_app_kubernetes_io_component]
           targetLabel: component
           action: replace

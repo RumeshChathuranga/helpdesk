@@ -15,9 +15,8 @@ spec:
     targetRevision: 6.55.0
     helm:
       valuesObject:
-        # Monolithic single-binary, not the microservices topology. One node,
-        # one tenant, one operator — the read/write/backend split would be three
-        # more things to keep alive for no gain at this size.
+        # Monolithic single-binary — the read/write/backend split would be
+        # three more things to keep alive for no gain at this size.
         deploymentMode: SingleBinary
         loki:
           auth_enabled: false

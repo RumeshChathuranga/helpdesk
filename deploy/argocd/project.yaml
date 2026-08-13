@@ -1,7 +1,5 @@
-# Applied by hand once, before the root app:
-#   kubectl apply -f deploy/argocd/project.yaml
-# Every Application in this repo belongs to this project, so this file is what
-# bounds the blast radius of a merged pull request.
+# Applied by hand once, before the root app: kubectl apply -f deploy/argocd/project.yaml
+# Every Application in this repo belongs to this project, bounding a PR's blast radius.
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
@@ -35,9 +33,8 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: monitoring
 
-  # Cluster-scoped objects are opt-in by kind. This list is exactly what the
-  # three operators install — nothing here can create a ClusterRoleBinding for
-  # an unrelated ServiceAccount without the list changing in a reviewed diff.
+  # Cluster-scoped objects are opt-in by kind — exactly what the three
+  # operators install, nothing more without a reviewed diff.
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace

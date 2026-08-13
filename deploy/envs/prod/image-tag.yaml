@@ -1,7 +1,4 @@
-# PROD — written in Phase 3, never applied.
-#
-# Human-owned, unlike its dev counterpart. Promotion is a pull request that
-# copies the sha- tag dev has been running into this file; that PR is the
-# production gate. CI never touches it.
+# PROD — written in Phase 3, never applied. Human-owned, unlike its dev
+# counterpart: promotion is a PR copying dev's sha- tag here; CI never touches it.
 image:
   tag: sha-0000000000000000000000000000000000000000

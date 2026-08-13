@@ -1,8 +1,6 @@
 {{- if and .Values.metrics.enabled .Values.metrics.dashboard.enabled }}
-# The dashboard ships with the app, not with the monitoring stack. It draws
-# metric names this chart's pods emit, so the two have to change in the same
-# commit or the panels quietly go blank. Grafana's sidecar watches every
-# namespace for this label and loads whatever it finds.
+# Ships with the app, not the monitoring stack — it draws metric names this
+# chart's pods emit, so both must change in the same commit.
 apiVersion: v1
 kind: ConfigMap
 metadata:

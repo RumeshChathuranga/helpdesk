@@ -1,6 +1,5 @@
 # PROD app-of-apps — written in Phase 3, never applied. Phase 5 applies this
-# once against EKS, after the Terraform has created the cluster, the IRSA role
-# and the AWS Secrets Manager entry.
+# once against EKS, after Terraform creates the cluster, IRSA role and secrets entry.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
