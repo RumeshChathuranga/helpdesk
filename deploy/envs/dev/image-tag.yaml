@@ -1,4 +1,4 @@
 # Machine-owned — the bump-dev-tag job in ci.yml rewrites this after every
 # push to master. Kept apart from values.yaml so the bump stays a one-line diff.
 image:
-  tag: sha-b6422bb2f8eb67b19044d4bd88ef8044645e15eb
+  tag: sha-384f64941ee02dc7de214062090deeef283b8626
