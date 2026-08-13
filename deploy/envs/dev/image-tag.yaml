@@ -3,4 +3,4 @@
 # rewrite can never reformat a file a human maintains — and so the bump commit
 # is a one-line diff you can read at a glance.
 image:
-  tag: sha-74c63d30fba8ec8c6c06639590973022a530ce34
+  tag: sha-b6422bb2f8eb67b19044d4bd88ef8044645e15eb
